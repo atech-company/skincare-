@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { api, ensureCsrf } from "@/lib/api";
+import { api, ensureCsrf, getApiBaseUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,7 @@ export default function LoginPage() {
           ? "Session expired — refresh and try again"
           : ax.response?.status === 422
             ? "Invalid email or password"
-            : "Cannot reach API — is the backend running on port 8000?");
+            : `Cannot reach API at ${getApiBaseUrl()}. Check NEXT_PUBLIC_API_URL and that the server is running.`);
       toast.error(msg);
     } finally {
       setLoading(false);

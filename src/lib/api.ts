@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const getApiBaseUrl = () =>
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const API_URL = getApiBaseUrl();
 
 /** Axios instance for Sanctum SPA auth (cookies + CSRF). */
 export const api = axios.create({
