@@ -41,12 +41,16 @@ export default function LoginPage() {
       toast.success("Welcome back!");
       router.push("/dashboard");
     } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("CSRF cookie not set")) {
+        toast.error(err.message);
+        return;
+      }
       const ax = err as { response?: { status?: number; data?: { message?: string; errors?: { email?: string[] } } } };
       const msg =
         ax.response?.data?.errors?.email?.[0] ??
         ax.response?.data?.message ??
         (ax.response?.status === 419
-          ? "Session expired — refresh and try again"
+          ? "CSRF/session failed. Clear cookies, hard refresh, and ensure API SESSION_DOMAIN=.syc-company.com"
           : ax.response?.status === 422
             ? "Invalid email or password"
             : `Cannot reach API at ${getApiBaseUrl()}. Check NEXT_PUBLIC_API_URL and that the server is running.`);
