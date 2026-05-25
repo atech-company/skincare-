@@ -18,26 +18,29 @@ export function ImageUploadZone({
 }) {
   const [uploading, setUploading] = useState(false);
 
-  const upload = async (files: File[]) => {
-    if (!files.length) return;
-    setUploading(true);
-    const form = new FormData();
-    form.append("type", type);
-    files.forEach((f) => form.append("images[]", f));
-    try {
-      await api.post(`/treatment-sessions/${sessionUuid}/images`, form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Images uploaded");
-      onUploaded?.();
-    } catch {
-      toast.error("Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
+  const upload = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setUploading(true);
+      const form = new FormData();
+      form.append("type", type);
+      files.forEach((f) => form.append("images[]", f));
+      try {
+        await api.post(`/treatment-sessions/${sessionUuid}/images`, form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        toast.success("Images uploaded");
+        onUploaded?.();
+      } catch {
+        toast.error("Upload failed");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [sessionUuid, type, onUploaded]
+  );
 
-  const onDrop = useCallback((accepted: File[]) => upload(accepted), [sessionUuid, type]);
+  const onDrop = useCallback((accepted: File[]) => upload(accepted), [upload]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

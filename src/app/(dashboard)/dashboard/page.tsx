@@ -28,7 +28,17 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: async () => {
       const res = await api.get<{ data: DashboardStats }>("/dashboard");
-      return normalizeDashboard(res.data.data ?? {});
+      const raw = res.data.data;
+      return normalizeDashboard({
+        total_patients: raw?.total_patients ?? 0,
+        today_sessions: raw?.today_sessions ?? 0,
+        revenue_this_month: raw?.revenue_this_month ?? 0,
+        pending_payments: raw?.pending_payments ?? 0,
+        recent_uploads: raw?.recent_uploads ?? [],
+        top_products: raw?.top_products ?? [],
+        recent_activities: raw?.recent_activities ?? [],
+        revenue_chart: raw?.revenue_chart ?? [],
+      });
     },
     staleTime: 5 * 60 * 1000,
   });

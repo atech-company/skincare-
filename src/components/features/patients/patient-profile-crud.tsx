@@ -17,7 +17,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { CrudActions } from "@/components/shared/crud-actions";
-import { PatientEditModal } from "@/components/features/patients/patient-crud-modals";
 import { PaymentForm } from "@/components/features/payments/payment-form";
 import { DocumentForm } from "@/components/features/documents/document-form";
 import { formatCurrency, formatDate } from "@/lib/utils";

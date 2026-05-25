@@ -49,7 +49,8 @@ export default function AppointmentsPage() {
         ...(values.patient ? { patient_uuid: values.patient.uuid } : {}),
       };
       if (appointmentId) {
-        const { patient_uuid: _, ...update } = body;
+        const { patient_uuid: _patientUuid, ...update } = body;
+        void _patientUuid;
         await api.put(`/appointments/${appointmentId}`, update);
       } else {
         await api.post("/appointments", body);

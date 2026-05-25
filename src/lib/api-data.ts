@@ -14,15 +14,15 @@ export function unwrapList<T>(body: unknown): T[] {
   return [];
 }
 
+import type { DashboardStats } from "@/types";
+
 /** Ensure dashboard chart/list fields are always arrays. */
-export function normalizeDashboard<T extends Record<string, unknown>>(stats: T): T {
-  const listKeys = ["revenue_chart", "recent_activities", "top_products", "recent_uploads"] as const;
-  const next = { ...stats } as T;
-
-  for (const key of listKeys) {
-    const value = stats[key];
-    (next as Record<string, unknown>)[key] = Array.isArray(value) ? value : [];
-  }
-
-  return next;
+export function normalizeDashboard(stats: DashboardStats): DashboardStats {
+  return {
+    ...stats,
+    recent_uploads: Array.isArray(stats.recent_uploads) ? stats.recent_uploads : [],
+    top_products: Array.isArray(stats.top_products) ? stats.top_products : [],
+    recent_activities: Array.isArray(stats.recent_activities) ? stats.recent_activities : [],
+    revenue_chart: Array.isArray(stats.revenue_chart) ? stats.revenue_chart : [],
+  };
 }
