@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Product } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -40,8 +41,8 @@ export default function ProductsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["products", search],
     queryFn: async () => {
-      const res = await api.get<{ data: Product[] }>("/products", { params: { search } });
-      return res.data.data;
+      const res = await api.get("/products", { params: { search } });
+      return unwrapList<Product>(res.data);
     },
     staleTime: 2 * 60 * 1000,
   });

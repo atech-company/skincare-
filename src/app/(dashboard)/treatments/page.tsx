@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import type { TreatmentSession } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,8 +15,8 @@ export default function TreatmentsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["treatments"],
     queryFn: async () => {
-      const res = await api.get<{ data: TreatmentSession[] }>("/treatment-sessions");
-      return res.data.data;
+      const res = await api.get("/treatment-sessions");
+      return unwrapList<TreatmentSession>(res.data);
     },
   });
 

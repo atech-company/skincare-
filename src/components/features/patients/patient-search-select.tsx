@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, User } from "lucide-react";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import type { Patient } from "@/types";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -22,10 +23,10 @@ export function PatientSearchSelect({
   const { data, isLoading } = useQuery({
     queryKey: ["patients-search", debounced],
     queryFn: async () => {
-      const res = await api.get<{ data: Patient[] }>("/patients", {
+      const res = await api.get("/patients", {
         params: { search: debounced, per_page: 8 },
       });
-      return res.data.data;
+      return unwrapList<Patient>(res.data);
     },
     enabled: debounced.length >= 1 && !selected,
     staleTime: 30 * 1000,
@@ -74,7 +75,7 @@ export function PatientSearchSelect({
       {isLoading && <p className="text-sm text-slate-500">Searching...</p>}
       {data && data.length > 0 && (
         <ul className="max-h-48 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-          {data.map((p) => (
+          {(data ?? []).map((p) => (
             <li key={p.uuid}>
               <button
                 type="button"

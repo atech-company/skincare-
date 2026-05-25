@@ -41,7 +41,10 @@ export default function LoginPage() {
         data
       );
       setToken(res.data.token);
-      setUser(res.data.user);
+      setUser({
+        ...res.data.user,
+        roles: Array.isArray(res.data.user.roles) ? res.data.user.roles : [],
+      });
       setInitialized(true);
       toast.success("Welcome back!");
       router.push("/dashboard");

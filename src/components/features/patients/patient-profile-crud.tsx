@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import { deletePatient } from "@/components/features/patients/patient-crud-modals";
 import { selectClass } from "@/lib/form-styles";
@@ -170,8 +171,8 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
   const { data: catalog } = useQuery({
     queryKey: ["products", "pick"],
     queryFn: async () => {
-      const res = await api.get<{ data: Product[] }>("/products", { params: { per_page: 100 } });
-      return res.data.data;
+      const res = await api.get("/products", { params: { per_page: 100 } });
+      return unwrapList<Product>(res.data);
     },
   });
 

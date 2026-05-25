@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
+import { normalizeDashboard } from "@/lib/api-data";
 import { useUiStore } from "@/stores/ui-store";
 import type { DashboardStats } from "@/types";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       queryKey: ["dashboard"],
       queryFn: async () => {
         const res = await api.get<{ data: DashboardStats }>("/dashboard");
-        return res.data.data;
+        return normalizeDashboard(res.data.data ?? {});
       },
       staleTime: 5 * 60 * 1000,
     });

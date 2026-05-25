@@ -34,7 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const { data } = await api.get<{ user: User }>("/auth/user");
-        if (!cancelled) setUser(data.user);
+        if (!cancelled) {
+          setUser({
+            ...data.user,
+            roles: Array.isArray(data.user.roles) ? data.user.roles : [],
+          });
+        }
       } catch {
         if (!cancelled) {
           useAuthStore.getState().clearAuth();

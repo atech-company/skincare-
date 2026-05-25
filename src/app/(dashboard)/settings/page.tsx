@@ -15,7 +15,12 @@ export default function SettingsPage() {
         <CardContent className="space-y-2 text-sm">
           <p><strong>Name:</strong> {user?.name}</p>
           <p><strong>Email:</strong> {user?.email}</p>
-          <p className="flex items-center gap-2"><strong>Roles:</strong> {user?.roles?.map((r) => <Badge key={r}>{r}</Badge>)}</p>
+          <p className="flex items-center gap-2">
+            <strong>Roles:</strong>{" "}
+            {(Array.isArray(user?.roles) ? user.roles : []).map((r) => (
+              <Badge key={r}>{r}</Badge>
+            ))}
+          </p>
         </CardContent>
       </Card>
       <Card>

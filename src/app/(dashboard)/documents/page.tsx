@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Document } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,8 @@ export default function DocumentsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["documents"],
     queryFn: async () => {
-      const res = await api.get<{ data: Document[] }>("/documents");
-      return res.data.data;
+      const res = await api.get("/documents");
+      return unwrapList<Document>(res.data);
     },
     staleTime: 60 * 1000,
   });

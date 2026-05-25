@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Appointment } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,8 @@ export default function AppointmentsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["appointments"],
     queryFn: async () => {
-      const res = await api.get<{ data: Appointment[] }>("/appointments");
-      return res.data.data;
+      const res = await api.get("/appointments");
+      return unwrapList<Appointment>(res.data);
     },
     staleTime: 60 * 1000,
   });

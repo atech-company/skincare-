@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
+import { unwrapList } from "@/lib/api-data";
 import type { Patient, PaginatedMeta } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export default function PatientsPage() {
       const res = await api.get<{ data: Patient[]; meta: PaginatedMeta }>("/patients", {
         params: { search: debouncedSearch || undefined, page, per_page: 10 },
       });
-      return res.data;
+      return { ...res.data, data: unwrapList<Patient>(res.data) };
     },
     staleTime: 60 * 1000,
   });

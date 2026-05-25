@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, DollarSign, ImageIcon, Users } from "lucide-react";
 import { api } from "@/lib/api";
+import { normalizeDashboard } from "@/lib/api-data";
 import { formatCurrency } from "@/lib/utils";
 import type { DashboardStats } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: async () => {
       const res = await api.get<{ data: DashboardStats }>("/dashboard");
-      return res.data.data;
+      return normalizeDashboard(res.data.data ?? {});
     },
     staleTime: 5 * 60 * 1000,
   });
