@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { api, getApiBaseUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { normalizeRoles } from "@/lib/auth-roles";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { touchActivity } from "@/lib/auth-token";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -43,25 +45,33 @@ export default function LoginPage() {
         "/auth/login",
         data
       );
-      setToken(res.data.token);
+      const token = res.data.token;
+      if (!token) {
+        toast.error(
+          "Login succeeded but no API token was returned. Redeploy the backend (Sanctum bearer auth) and try again."
+        );
+        return;
+      }
+      setToken(token);
       touchActivity();
       setUser({
         ...res.data.user,
-        roles: Array.isArray(res.data.user.roles) ? res.data.user.roles : [],
+        roles: normalizeRoles(res.data.user.roles),
       });
       setInitialized(true);
       toast.success("Welcome back!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      const ax = err as { response?: { status?: number; data?: { message?: string; errors?: { email?: string[] } } } };
+      const ax = err as { response?: { status?: number } };
       const msg =
-        ax.response?.data?.errors?.email?.[0] ??
-        ax.response?.data?.message ??
-        (ax.response?.status === 419
+        ax.response?.status === 419
           ? "Session expired — refresh and try again"
           : ax.response?.status === 422
-            ? "Invalid email or password"
-            : `Cannot reach API at ${getApiBaseUrl()}. Check NEXT_PUBLIC_API_URL and that the server is running.`);
+            ? getApiErrorMessage(err, "Invalid email or password")
+            : getApiErrorMessage(
+                err,
+                `Cannot reach API at ${getApiBaseUrl()}. Check connection and CORS.`
+              );
       toast.error(msg);
     } finally {
       setLoading(false);

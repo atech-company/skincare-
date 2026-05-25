@@ -4,22 +4,30 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getStoredToken } from "@/lib/auth-token";
+import { useAuth } from "@/hooks/use-auth";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UsersManagement } from "@/components/features/settings/users-management";
+import { getApiErrorMessage } from "@/lib/api-errors";
+import { isAdminUser, normalizeRoles } from "@/lib/auth-roles";
 
 export default function SettingsPage() {
-  const user = useAuthStore((s) => s.user);
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const setUser = useAuthStore((s) => s.setUser);
   const setToken = useAuthStore((s) => s.setToken);
   const { settings, setSettings } = useSettingsStore();
   const queryClient = useQueryClient();
-  const isAdmin = user?.roles?.includes("admin");
+  const roles = normalizeRoles(user?.roles);
+  const isAdmin = isAdminUser(roles);
+  const [refreshingUser, setRefreshingUser] = useState(false);
 
   const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -29,6 +37,39 @@ export default function SettingsPage() {
   const [idleMinutes, setIdleMinutes] = useState(String(settings.session_idle_minutes));
 
   useEffect(() => {
+    setName(user?.name ?? "");
+    setEmail(user?.email ?? "");
+    setPhone(user?.phone ?? "");
+  }, [user?.name, user?.email, user?.phone]);
+
+  /** Reload roles from API (fixes empty roles after old login bundle). */
+  useEffect(() => {
+    if (!getStoredToken() || !user || normalizeRoles(user.roles).length > 0) return;
+    let cancelled = false;
+    setRefreshingUser(true);
+    api
+      .get<{ user: { name: string; email: string; phone?: string; roles?: unknown; uuid: string; id: number; is_active: boolean } }>(
+        "/auth/user"
+      )
+      .then((res) => {
+        if (!cancelled) {
+          setUser({
+            ...user,
+            ...res.data.user,
+            roles: normalizeRoles(res.data.user.roles),
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setRefreshingUser(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, setUser]);
+
+  useEffect(() => {
     setAppName(settings.app_name);
     setAppTagline(settings.app_tagline);
     setIdleMinutes(String(settings.session_idle_minutes));
@@ -36,14 +77,22 @@ export default function SettingsPage() {
 
   const profileMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.patch("/auth/profile", { name, phone: phone || null });
+      if (!getStoredToken()) {
+        throw new Error("You are not signed in. Please log in again.");
+      }
+      const res = await api.patch("/auth/profile", {
+        name,
+        email,
+        phone: phone || null,
+      });
       return res.data.user;
     },
     onSuccess: (u) => {
-      setUser({ ...u, roles: Array.isArray(u.roles) ? u.roles : [] });
-      toast.success("Profile updated");
+      setUser({ ...u, roles: normalizeRoles(u.roles) });
+      toast.success("Profile updated — use the new email on your next sign-in");
     },
-    onError: () => toast.error("Could not update profile"),
+    onError: (err) =>
+      toast.error(getApiErrorMessage(err, "Could not update profile")),
   });
 
   const passwordMutation = useMutation({
@@ -60,7 +109,7 @@ export default function SettingsPage() {
     },
     onSuccess: (data) => {
       setToken(data.token);
-      setUser({ ...data.user, roles: Array.isArray(data.user.roles) ? data.user.roles : [] });
+      setUser({ ...data.user, roles: normalizeRoles(data.user.roles) });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -95,6 +144,22 @@ export default function SettingsPage() {
     onError: () => toast.error("Only admins can change system settings"),
   });
 
+  if (authLoading || refreshingUser) {
+    return (
+      <div className="mx-auto max-w-2xl p-8 text-center text-slate-500">
+        Loading account…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="mx-auto max-w-2xl p-8 text-center text-amber-600">
+        Session expired or not loaded. Please sign in again.
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -105,12 +170,16 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>My profile</CardTitle>
-          <CardDescription>Update your display name and phone</CardDescription>
+          <CardDescription>Update your name, login email, and phone</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
-            <Input value={user?.email ?? ""} disabled />
+            <label className="mb-1 block text-sm font-medium">Login email</label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Full name</label>
@@ -122,7 +191,7 @@ export default function SettingsPage() {
           </div>
           <p className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium">Roles:</span>
-            {(Array.isArray(user?.roles) ? user.roles : []).map((r) => (
+            {roles.map((r) => (
               <Badge key={r}>{r}</Badge>
             ))}
           </p>
@@ -214,6 +283,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <UsersManagement currentUserUuid={user.uuid} isAdmin={isAdmin} rolesLabel={roles.join(", ") || "none"} />
     </div>
   );
 }

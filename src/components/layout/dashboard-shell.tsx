@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!user) return;
+    if (!isAuthenticated) return;
     void queryClient.prefetchQuery({
       queryKey: ["dashboard"],
       queryFn: async () => {
@@ -37,7 +37,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       },
       staleTime: 5 * 60 * 1000,
     });
-  }, [user, queryClient]);
+  }, [isAuthenticated, queryClient]);
 
   if (isLoading && !user) {
     return (

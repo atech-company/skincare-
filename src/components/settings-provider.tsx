@@ -12,7 +12,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     axios
-      .get<{ data: AppSettings }>(`${getApiBaseUrl()}/api/v1/settings/public`)
+      .get<{ data: AppSettings }>(`${getApiBaseUrl()}/api/v1/settings/public`, {
+        withCredentials: false,
+      })
       .then((res) => setSettings(res.data.data))
       .catch(() => setSettings(useSettingsStore.getState().settings));
 

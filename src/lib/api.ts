@@ -27,7 +27,14 @@ function attachAuthInterceptor(client: AxiosInstance) {
       return response;
     },
     (error) => {
-      if (error?.response?.status === 401) {
+      const status = error?.response?.status;
+      const headers = error?.config?.headers;
+      const auth =
+        headers && typeof headers.get === "function"
+          ? headers.get("Authorization")
+          : headers?.Authorization ?? headers?.authorization;
+      const hadToken = typeof auth === "string" && auth.startsWith("Bearer ");
+      if (status === 401 && hadToken) {
         useAuthStore.getState().clearAuth();
       }
       return Promise.reject(error);
@@ -45,6 +52,7 @@ const defaultHeaders = {
 export const api = axios.create({
   baseURL: `${API_URL}/api/v1`,
   headers: defaultHeaders,
+  withCredentials: false,
 });
 
 attachAuthInterceptor(api);

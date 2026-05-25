@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, DollarSign, ImageIcon, Users } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { normalizeDashboard } from "@/lib/api-data";
 import { formatCurrency } from "@/lib/utils";
@@ -24,8 +25,11 @@ const statCards: {
 ];
 
 export default function DashboardPage() {
+  const { isAuthenticated, isReady } = useAuth();
+
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
+    enabled: isReady && isAuthenticated,
     queryFn: async () => {
       const res = await api.get<{ data: DashboardStats }>("/dashboard");
       const raw = res.data.data;
