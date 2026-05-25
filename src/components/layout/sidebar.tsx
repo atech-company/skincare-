@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
+import { useSettingsStore } from "@/stores/settings-store";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +35,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
+  const { settings } = useSettingsStore();
 
   return (
     <aside
@@ -48,8 +50,8 @@ export function Sidebar() {
         </div>
         {!sidebarCollapsed && (
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">DermaCare</p>
-            <p className="text-xs text-slate-500">Clinic Suite</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">{settings.app_name}</p>
+            <p className="text-xs text-slate-500">{settings.app_tagline}</p>
           </div>
         )}
       </div>

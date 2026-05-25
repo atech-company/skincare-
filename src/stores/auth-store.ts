@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getStoredToken, setStoredToken } from "@/lib/auth-token";
+import { clearSession, getStoredToken, setStoredToken } from "@/lib/auth-token";
 import type { User } from "@/types";
 
 interface AuthState {
@@ -27,7 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   setInitialized: (isInitialized) => set({ isInitialized }),
   clearAuth: () => {
-    setStoredToken(null);
+    clearSession();
     set({ user: null, token: null });
   },
 }));

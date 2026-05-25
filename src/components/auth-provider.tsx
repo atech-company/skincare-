@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { getStoredToken } from "@/lib/auth-token";
+import { getStoredToken, isIdleExpired } from "@/lib/auth-token";
 import { isPublicAuthPath } from "@/lib/public-routes";
 import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types";
@@ -19,6 +19,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (isPublicAuthPath(pathname)) {
       setInitialized(true);
+      return;
+    }
+
+    if (isIdleExpired()) {
+      useAuthStore.getState().clearAuth();
+      setInitialized(true);
+      if (!isPublicAuthPath(pathname)) router.replace("/login");
       return;
     }
 

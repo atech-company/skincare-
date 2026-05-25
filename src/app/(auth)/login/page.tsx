@@ -10,6 +10,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { api, getApiBaseUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { touchActivity } from "@/lib/auth-token";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
+  const { settings } = useSettingsStore();
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
   const setToken = useAuthStore((s) => s.setToken);
@@ -41,6 +44,7 @@ export default function LoginPage() {
         data
       );
       setToken(res.data.token);
+      touchActivity();
       setUser({
         ...res.data.user,
         roles: Array.isArray(res.data.user.roles) ? res.data.user.roles : [],
@@ -71,8 +75,8 @@ export default function LoginPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/30">
             <Sparkles className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">DermaCare</h1>
-          <p className="text-sm text-slate-500">Premium clinic management</p>
+          <h1 className="text-2xl font-bold tracking-tight">{settings.app_name}</h1>
+          <p className="text-sm text-slate-500">{settings.app_tagline}</p>
         </div>
 
         <Card>
