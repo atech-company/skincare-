@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Bell, LogOut, Moon, Search, Sun, User } from "lucide-react";
-import { api, ensureCsrf } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { Button } from "@/components/ui/button";
@@ -16,15 +16,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
-  const { user, setUser } = useAuthStore();
+  const { user, clearAuth } = useAuthStore();
   const { theme, setTheme } = useUiStore();
   const router = useRouter();
 
   const logout = async () => {
-    await ensureCsrf();
-    await api.post("/auth/logout");
-    setUser(null);
-    router.push("/login");
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      clearAuth();
+      router.push("/login");
+    }
   };
 
   return (

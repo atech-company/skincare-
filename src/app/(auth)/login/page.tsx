@@ -8,8 +8,9 @@ import { z } from "zod";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { api, ensureCsrf, getApiBaseUrl } from "@/lib/api";
+import { api, getApiBaseUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,7 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
+  const setToken = useAuthStore((s) => s.setToken);
   const setInitialized = useAuthStore((s) => s.setInitialized);
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -34,23 +36,22 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      await ensureCsrf();
-      const res = await api.post("/auth/login", data);
+      const res = await api.post<{ user: User; token: string }>(
+        "/auth/login",
+        data
+      );
+      setToken(res.data.token);
       setUser(res.data.user);
       setInitialized(true);
       toast.success("Welcome back!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes("CSRF cookie not set")) {
-        toast.error(err.message);
-        return;
-      }
       const ax = err as { response?: { status?: number; data?: { message?: string; errors?: { email?: string[] } } } };
       const msg =
         ax.response?.data?.errors?.email?.[0] ??
         ax.response?.data?.message ??
         (ax.response?.status === 419
-          ? "CSRF/session failed. Clear cookies, hard refresh, and ensure API SESSION_DOMAIN=.syc-company.com"
+          ? "Session expired — refresh and try again"
           : ax.response?.status === 422
             ? "Invalid email or password"
             : `Cannot reach API at ${getApiBaseUrl()}. Check NEXT_PUBLIC_API_URL and that the server is running.`);

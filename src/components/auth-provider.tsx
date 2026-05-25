@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { getStoredToken } from "@/lib/auth-token";
 import { isPublicAuthPath } from "@/lib/public-routes";
 import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types";
@@ -21,8 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (user) {
+    const token = getStoredToken();
+    if (!token) {
       setInitialized(true);
+      if (!isPublicAuthPath(pathname)) router.replace("/login");
       return;
     }
 
@@ -34,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled) setUser(data.user);
       } catch {
         if (!cancelled) {
-          setUser(null);
+          useAuthStore.getState().clearAuth();
           router.replace("/login");
         }
       } finally {
