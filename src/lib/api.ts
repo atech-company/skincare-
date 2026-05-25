@@ -1,7 +1,8 @@
 import axios from "axios";
 
+/** API origin without trailing slash (avoids `//api/v1` when env ends with `/`). */
 export const getApiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 const API_URL = getApiBaseUrl();
 
