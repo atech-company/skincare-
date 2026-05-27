@@ -91,6 +91,8 @@ export default function DashboardPage() {
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-40 w-full" />
+            ) : !data?.revenue_chart?.length ? (
+              <p className="text-sm text-slate-500">No revenue data yet.</p>
             ) : (
               <div className="flex h-40 items-end gap-2">
                 {data?.revenue_chart?.map((m) => (
@@ -116,7 +118,8 @@ export default function DashboardPage() {
           <CardContent className="space-y-3">
             {isLoading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
-              : data?.recent_activities?.map((a) => (
+              : data?.recent_activities?.length
+                ? data.recent_activities.map((a) => (
                   <div key={a.id} className="flex items-start gap-3 rounded-xl border border-slate-100 p-3 dark:border-slate-800">
                     <Badge variant="muted">{a.action}</Badge>
                     <div className="flex-1 text-sm">
@@ -124,7 +127,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-500">{a.user?.name}</p>
                     </div>
                   </div>
-                ))}
+                  ))
+                : <p className="text-sm text-slate-500">No recent activity yet.</p>}
           </CardContent>
         </Card>
 
@@ -146,12 +150,12 @@ export default function DashboardPage() {
             <CardTitle>Most Used Products</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {data?.top_products?.map((p) => (
+            {data?.top_products?.length ? data.top_products.map((p) => (
               <div key={p.product_name} className="flex justify-between text-sm">
                 <span>{p.product_name}</span>
                 <Badge>{p.usage_count}x</Badge>
               </div>
-            ))}
+            )) : <p className="text-sm text-slate-500">No product usage data yet.</p>}
           </CardContent>
         </Card>
       </div>

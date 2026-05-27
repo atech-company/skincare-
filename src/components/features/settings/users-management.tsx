@@ -154,7 +154,7 @@ export function UsersManagement({
       <CardContent>
         {!isAdmin && (
           <p className="text-sm text-amber-600">
-            Sign in with an admin account (e.g. admin@dermacare.test) to manage team members.
+            Sign in with an administrator account to manage team members.
           </p>
         )}
         {isAdmin && isLoading && <p className="text-sm text-slate-500">Loading users…</p>}

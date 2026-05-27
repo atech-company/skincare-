@@ -36,7 +36,7 @@ export default function LoginPage() {
   const [isHydrated, setIsHydrated] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "admin@dermacare.test", password: "password" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (data: FormData) => {
@@ -103,7 +103,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle>Sign in</CardTitle>
             <CardDescription>
-              Use your <strong>email</strong> (not username). Demo: admin@dermacare.test / password
+              Use your <strong>email</strong> (not username).
             </CardDescription>
           </CardHeader>
           <CardContent>
