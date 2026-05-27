@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,6 +79,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleSubmit(onSubmit)(event);
+  };
+
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -102,7 +107,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form noValidate onSubmit={handleFormSubmit} className="space-y-4">
               <div>
                 <Input placeholder="Email" type="email" {...register("email")} />
                 {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
