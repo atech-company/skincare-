@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +33,7 @@ export default function LoginPage() {
   const setToken = useAuthStore((s) => s.setToken);
   const setInitialized = useAuthStore((s) => s.setInitialized);
   const [loading, setLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { email: "admin@dermacare.test", password: "password" },
@@ -78,6 +79,10 @@ export default function LoginPage() {
     }
   };
 
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="animate-fade-in-up w-full max-w-md">
@@ -97,7 +102,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Input placeholder="Email" type="email" {...register("email")} />
                 {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
@@ -111,7 +116,7 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || !isHydrated}>
                 {loading ? "Signing in..." : "Sign in"}
               </Button>
             </form>
