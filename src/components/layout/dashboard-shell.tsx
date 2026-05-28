@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
@@ -16,6 +16,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isAuthenticated } = useAuth();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const queryClient = useQueryClient();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -49,15 +50,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <Sidebar />
+      <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
       <div
         className={cn(
           "transition-[padding] duration-200",
-          sidebarCollapsed ? "pl-[72px]" : "pl-64"
+          sidebarCollapsed ? "md:pl-[72px]" : "md:pl-64"
         )}
       >
-        <Navbar />
-        <main className="p-6">{children}</main>
+        <Navbar onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
+        <main className="p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
