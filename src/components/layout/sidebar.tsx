@@ -27,7 +27,6 @@ const navItems = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/timeline", label: "Timeline", icon: Timeline },
   { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/reports", label: "Reports", icon: Sparkles },
   { href: "/appointments", label: "Appointments", icon: Calendar },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
