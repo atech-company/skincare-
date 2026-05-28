@@ -144,6 +144,27 @@ export default function SettingsPage() {
     onError: () => toast.error("Only admins can change system settings"),
   });
 
+  const resetDataMutation = useMutation({
+    mutationFn: async () => {
+      const confirmed = window.prompt(
+        'Type RESET to permanently delete clinic data (patients, sessions, images, documents, appointments, payments, products).'
+      );
+      if (confirmed !== "RESET") {
+        throw new Error("Reset cancelled");
+      }
+      const res = await api.post("/settings/reset-data");
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast.success("Clinic data reset completed");
+    },
+    onError: (err: Error) => {
+      if (err.message === "Reset cancelled") return;
+      toast.error(getApiErrorMessage(err, "Could not reset data"));
+    },
+  });
+
   if (authLoading || refreshingUser) {
     return (
       <div className="mx-auto max-w-2xl p-8 text-center text-slate-500">
@@ -275,9 +296,18 @@ export default function SettingsPage() {
             </p>
           </div>
           {isAdmin ? (
-            <Button onClick={() => settingsMutation.mutate()} disabled={settingsMutation.isPending}>
-              {settingsMutation.isPending ? "Saving…" : "Save system settings"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => settingsMutation.mutate()} disabled={settingsMutation.isPending}>
+                {settingsMutation.isPending ? "Saving…" : "Save system settings"}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => resetDataMutation.mutate()}
+                disabled={resetDataMutation.isPending}
+              >
+                {resetDataMutation.isPending ? "Resetting…" : "Reset data"}
+              </Button>
+            </div>
           ) : (
             <p className="text-sm text-amber-600">Contact an admin to change system name and session time.</p>
           )}
