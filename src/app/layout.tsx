@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description: "Premium dermatology & skincare clinic management platform",
 };
 
+/** Prevent long-lived HTML cache (stale chunk URLs after each `next build`). */
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
