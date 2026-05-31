@@ -5,6 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { labelClass, optionClass, selectClass, textareaClass } from "@/lib/form-styles";
+import { cn } from "@/lib/utils";
 import type { Patient } from "@/types";
 
 const schema = z.object({
@@ -20,6 +22,8 @@ const schema = z.object({
 });
 
 export type PatientFormData = z.infer<typeof schema>;
+
+const SKIN_TYPES = ["normal", "dry", "oily", "combination", "sensitive"] as const;
 
 export function PatientForm({
   defaultValues,
@@ -48,50 +52,52 @@ export function PatientForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <label className="text-sm font-medium">Full Name</label>
+        <label className={labelClass}>Full Name</label>
         <Input {...register("full_name")} />
         {errors.full_name && <p className="text-xs text-red-500">{errors.full_name.message}</p>}
       </div>
       <div>
-        <label className="text-sm font-medium">Phone</label>
+        <label className={labelClass}>Phone</label>
         <Input {...register("phone")} />
       </div>
       <div>
-        <label className="text-sm font-medium">Gender</label>
-        <select {...register("gender")} className="flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm">
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-          <option value="other">Other</option>
+        <label className={labelClass}>Gender</label>
+        <select {...register("gender")} className={selectClass}>
+          <option value="female" className={optionClass}>Female</option>
+          <option value="male" className={optionClass}>Male</option>
+          <option value="other" className={optionClass}>Other</option>
         </select>
       </div>
       <div>
-        <label className="text-sm font-medium">Date of Birth</label>
+        <label className={labelClass}>Date of Birth</label>
         <Input type="date" {...register("dob")} />
       </div>
       <div>
-        <label className="text-sm font-medium">Skin Type</label>
-        <select {...register("skin_type")} className="flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm">
-          <option value="">—</option>
-          {["normal", "dry", "oily", "combination", "sensitive"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+        <label className={labelClass}>Skin Type</label>
+        <select {...register("skin_type")} className={selectClass}>
+          <option value="" className={optionClass}>—</option>
+          {SKIN_TYPES.map((s) => (
+            <option key={s} value={s} className={optionClass}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </option>
           ))}
         </select>
       </div>
       <div className="sm:col-span-2">
-        <label className="text-sm font-medium">Address</label>
+        <label className={labelClass}>Address</label>
         <Input {...register("address")} />
       </div>
       <div className="sm:col-span-2">
-        <label className="text-sm font-medium">Allergies</label>
+        <label className={labelClass}>Allergies</label>
         <Input {...register("allergies")} />
       </div>
       <div className="sm:col-span-2">
-        <label className="text-sm font-medium">Medical History</label>
-        <textarea {...register("medical_history")} className="min-h-[80px] w-full rounded-xl border border-slate-200 p-3 text-sm" />
+        <label className={labelClass}>Medical History</label>
+        <textarea {...register("medical_history")} className={cn(textareaClass, "min-h-[80px]")} />
       </div>
       <div className="sm:col-span-2">
-        <label className="text-sm font-medium">Notes</label>
-        <textarea {...register("notes")} className="min-h-[60px] w-full rounded-xl border border-slate-200 p-3 text-sm" />
+        <label className={labelClass}>Notes</label>
+        <textarea {...register("notes")} className={cn(textareaClass, "min-h-[60px]")} />
       </div>
       <div className="sm:col-span-2">
         <Button type="submit" disabled={loading}>

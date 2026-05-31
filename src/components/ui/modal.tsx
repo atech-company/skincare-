@@ -37,8 +37,8 @@ export function Modal({
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{title}</h2>
+            {description && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
           </div>
           <Button type="button" variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />

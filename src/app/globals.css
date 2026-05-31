@@ -64,6 +64,11 @@ html.dark body {
   background: #475569;
 }
 
+/* Native select dropdowns follow dark theme */
+.dark select {
+  color-scheme: dark;
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
