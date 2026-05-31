@@ -1,14 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, FileText, X } from "lucide-react";
+import { Download, FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Document } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   downloadDocument,
+  fetchDocumentBlob,
   isImageDocument,
   isPdfDocument,
 } from "@/lib/document-utils";
@@ -26,6 +29,44 @@ export function DocumentViewerPanel({
   const displayPatient = patientName ?? doc.patient_name;
   const canPreviewPdf = isPdfDocument(doc);
   const canPreviewImage = isImageDocument(doc);
+  const canPreview = canPreviewPdf || canPreviewImage;
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(canPreview);
+  const [previewError, setPreviewError] = useState(false);
+
+  useEffect(() => {
+    if (!canPreview) {
+      setPreviewUrl(null);
+      setPreviewLoading(false);
+      setPreviewError(false);
+      return;
+    }
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    (async () => {
+      setPreviewLoading(true);
+      setPreviewError(false);
+      setPreviewUrl(null);
+      try {
+        const blob = await fetchDocumentBlob(doc, true);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      } catch {
+        if (!cancelled) setPreviewError(true);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [doc.id, canPreview]);
 
   const handleDownload = async () => {
     try {
@@ -66,24 +107,41 @@ export function DocumentViewerPanel({
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden p-0">
-        {canPreviewPdf && (
+        {previewLoading && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        )}
+        {!previewLoading && previewError && canPreview && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Could not load preview. Try downloading the file.
+            </p>
+            <Button onClick={() => void handleDownload()}>
+              <Download className="h-4 w-4" />
+              Download{displayPatient ? ` — ${displayPatient}` : ""}
+            </Button>
+          </div>
+        )}
+        {!previewLoading && !previewError && previewUrl && canPreviewPdf && (
           <iframe
             title={doc.title}
-            src={doc.file_url}
+            src={previewUrl}
             className="min-h-[16rem] w-full flex-1 border-0 bg-slate-100 dark:bg-slate-950"
           />
         )}
-        {canPreviewImage && !canPreviewPdf && (
+        {!previewLoading && !previewError && previewUrl && canPreviewImage && !canPreviewPdf && (
           <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-100 p-4 dark:bg-slate-950">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={doc.file_url}
+              src={previewUrl}
               alt={doc.title}
               className="max-h-[min(70vh,32rem)] w-auto max-w-full rounded-lg object-contain"
             />
           </div>
         )}
-        {!canPreviewPdf && !canPreviewImage && (
+        {!canPreview && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
             <FileText className="h-12 w-12 text-violet-500" />
             <p className="text-sm text-slate-500 dark:text-slate-400">
