@@ -93,6 +93,8 @@ export interface Document {
   mime_type: string;
   file_size: number;
   created_at?: string;
+  patient_uuid?: string;
+  patient_name?: string;
 }
 
 export interface Payment {

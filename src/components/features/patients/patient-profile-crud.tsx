@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
@@ -20,6 +20,8 @@ import { Modal } from "@/components/ui/modal";
 import { CrudActions } from "@/components/shared/crud-actions";
 import { PaymentForm } from "@/components/features/payments/payment-form";
 import { DocumentForm } from "@/components/features/documents/document-form";
+import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
+import { downloadDocument } from "@/lib/document-utils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export function SessionListCrud({
@@ -120,28 +122,63 @@ export function PaymentsTab({ uuid, payments }: { uuid: string; payments?: Payme
 export function DocumentsTab({ uuid, patient, documents }: { uuid: string; patient: Patient; documents?: Patient["documents"] }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<NonNullable<Patient["documents"]>[number] | null>(null);
+
+  const handleDownload = async (doc: NonNullable<Patient["documents"]>[number], e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await downloadDocument(doc, patient.full_name);
+      toast.success("Download started");
+    } catch {
+      toast.error("Could not download file");
+    }
+  };
 
   return (
     <div className="space-y-4">
       <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Upload</Button>
-      {!documents?.length && <p className="text-slate-500">No documents.</p>}
-      {documents?.map((d) => (
-        <Card key={d.uuid}>
-          <CardContent className="flex items-center justify-between p-4">
-            <a href={d.file_url} target="_blank" rel="noreferrer" className="font-medium hover:text-violet-600">
-              {d.title}
-            </a>
-            <CrudActions
-              onDelete={async () => {
-                if (!(await confirmDelete(`Delete "${d.title}"?`))) return;
-                if (await deleteResource(`/documents/${d.id}`)) {
-                  queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
-      ))}
+      {!documents?.length && <p className="text-slate-500 dark:text-slate-400">No documents.</p>}
+      <div className={selected ? "grid gap-4 lg:grid-cols-2" : undefined}>
+        <div className="space-y-2">
+          {documents?.map((d) => (
+            <Card
+              key={d.uuid}
+              className={selected?.uuid === d.uuid ? "border-violet-400 ring-2 ring-violet-500/20" : "cursor-pointer hover:border-violet-300 dark:hover:border-violet-700"}
+              onClick={() => setSelected(d)}
+            >
+              <CardContent className="flex items-center justify-between gap-2 p-4">
+                <p className="font-medium hover:text-violet-600 dark:hover:text-violet-300">{d.title}</p>
+                <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    title={`Download — ${patient.full_name}`}
+                    onClick={(e) => void handleDownload(d, e)}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <CrudActions
+                    onDelete={async () => {
+                      if (!(await confirmDelete(`Delete "${d.title}"?`))) return;
+                      if (await deleteResource(`/documents/${d.id}`)) {
+                        queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
+                        if (selected?.uuid === d.uuid) setSelected(null);
+                      }
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {selected && (
+          <DocumentViewerPanel
+            doc={{ ...selected, patient_uuid: uuid, patient_name: patient.full_name }}
+            patientName={patient.full_name}
+            onClose={() => setSelected(null)}
+          />
+        )}
+      </div>
       <Modal open={open} onClose={() => setOpen(false)} title="Upload document">
         <DocumentForm
           defaultPatient={patient}
