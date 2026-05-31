@@ -23,6 +23,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem("dermacare-ui");if(s){var t=JSON.parse(s).state?.theme;if(t==="dark")document.documentElement.classList.add("dark");}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>

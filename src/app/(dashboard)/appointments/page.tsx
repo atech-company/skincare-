@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
@@ -20,12 +21,14 @@ import {
 import { formatDate } from "@/lib/utils";
 
 export default function AppointmentsPage() {
+  const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [editing, setEditing] = useState<Appointment | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["appointments"],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await api.get("/appointments");
       return unwrapList<Appointment>(res.data);

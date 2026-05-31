@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Calendar, Phone, Plus, Pencil } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import type { Patient, TreatmentImage } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,7 +33,7 @@ const BeforeAfterViewer = dynamic(
 
 const TAB_KEYS = ["overview", "timeline", "treatments", "images", "products", "documents", "payments"] as const;
 
-function usePatientInclude(uuid: string, include: string | null) {
+function usePatientInclude(uuid: string, include: string | null, canFetch: boolean) {
   return useQuery({
     queryKey: ["patient", uuid, include],
     queryFn: async () => {
@@ -41,12 +42,13 @@ function usePatientInclude(uuid: string, include: string | null) {
       });
       return res.data.data;
     },
-    enabled: !!uuid && !!include,
+    enabled: canFetch && !!uuid && !!include,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 function PatientProfileContent() {
+  const { canFetch } = useAuth();
   const { uuid } = useParams<{ uuid: string }>();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab");
@@ -68,7 +70,7 @@ function PatientProfileContent() {
       });
       return res.data.data;
     },
-    enabled: !!uuid,
+    enabled: canFetch && !!uuid,
   });
 
   const includeForTab: Record<string, string | null> = {
@@ -84,7 +86,8 @@ function PatientProfileContent() {
   const tabInclude = includeForTab[tab];
   const { data: tabData, isLoading: tabLoading } = usePatientInclude(
     uuid,
-    tab !== "overview" && tab !== "timeline" ? tabInclude : null
+    tab !== "overview" && tab !== "timeline" ? tabInclude : null,
+    canFetch
   );
 
   const merged: Patient | undefined =

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, UserCog } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { getApiErrorMessage } from "@/lib/api-errors";
@@ -47,6 +48,7 @@ export function UsersManagement({
   isAdmin: boolean;
   rolesLabel: string;
 }) {
+  const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
@@ -54,6 +56,7 @@ export function UsersManagement({
 
   const { data: users, isLoading, isError, error } = useQuery({
     queryKey: ["users"],
+    enabled: canFetch && isAdmin,
     queryFn: async () => {
       const res = await api.get("/users");
       return unwrapList<User>(res.data).map((u) => ({
@@ -61,7 +64,6 @@ export function UsersManagement({
         roles: normalizeRoles(u.roles),
       }));
     },
-    enabled: isAdmin,
     retry: 1,
   });
 

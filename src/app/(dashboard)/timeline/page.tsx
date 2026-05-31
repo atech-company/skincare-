@@ -2,14 +2,17 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import type { Patient } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function TimelinePage() {
+  const { canFetch } = useAuth();
   const { data: patients } = useQuery({
     queryKey: ["patients-list"],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await api.get("/patients", { params: { per_page: 20 } });
       return unwrapList<Patient>(res.data);

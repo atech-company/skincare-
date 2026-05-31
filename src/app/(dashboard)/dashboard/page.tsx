@@ -25,11 +25,11 @@ const statCards: {
 ];
 
 export default function DashboardPage() {
-  const { isAuthenticated, isReady } = useAuth();
+  const { canFetch } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
-    enabled: isReady && isAuthenticated,
+    enabled: canFetch,
     queryFn: async () => {
       const res = await api.get<{ data: DashboardStats }>("/dashboard");
       const raw = res.data.data;
@@ -50,8 +50,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-slate-500">Overview of your clinic today</p>
+        <h1 className="text-xl font-bold sm:text-2xl">Dashboard</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Overview of your clinic today</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

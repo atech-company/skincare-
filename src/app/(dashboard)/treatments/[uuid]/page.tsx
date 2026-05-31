@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { TreatmentSession, TreatmentImage } from "@/types";
@@ -28,6 +29,7 @@ const ImageAnnotator = dynamic(
 );
 
 export default function TreatmentDetailPage() {
+  const { canFetch } = useAuth();
   const { uuid } = useParams<{ uuid: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -35,6 +37,7 @@ export default function TreatmentDetailPage() {
 
   const { data: session, refetch } = useQuery({
     queryKey: ["treatment", uuid],
+    enabled: canFetch && !!uuid,
     queryFn: async () => {
       const res = await api.get<{ data: TreatmentSession }>(`/treatment-sessions/${uuid}`);
       return res.data.data;

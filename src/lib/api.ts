@@ -11,6 +11,7 @@ const API_URL = getApiBaseUrl();
 function attachAuthInterceptor(client: AxiosInstance) {
   client.interceptors.request.use((config) => {
     if (isIdleExpired()) {
+      useAuthStore.getState().clearAuth();
       return Promise.reject(new Error("SESSION_IDLE_EXPIRED"));
     }
     const token = getStoredToken();

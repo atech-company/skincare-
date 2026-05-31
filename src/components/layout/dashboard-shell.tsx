@@ -13,13 +13,13 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, canFetch } = useAuth();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const queryClient = useQueryClient();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!canFetch) return;
     void queryClient.prefetchQuery({
       queryKey: ["dashboard"],
       queryFn: async () => {
@@ -38,7 +38,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       },
       staleTime: 5 * 60 * 1000,
     });
-  }, [isAuthenticated, queryClient]);
+  }, [canFetch, queryClient]);
 
   if (isLoading && !user) {
     return (
@@ -58,7 +58,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <Navbar onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="p-3 sm:p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import type { AxiosError } from "axios";
 import { api } from "@/lib/api";
 import { normalizeRoles } from "@/lib/auth-roles";
-import { getStoredToken, isIdleExpired } from "@/lib/auth-token";
+import { getStoredToken, isIdleExpired, touchActivity } from "@/lib/auth-token";
 import { isPublicAuthPath } from "@/lib/public-routes";
 import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types";
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const isInitialized = useAuthStore((s) => s.isInitialized);
   const setUser = useAuthStore((s) => s.setUser);
   const setToken = useAuthStore((s) => s.setToken);
@@ -32,28 +34,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(getStoredToken());
   }, [setToken]);
 
+  // Route guard: check session on navigation (does not re-fetch user).
   useEffect(() => {
     if (isPublicAuthPath(pathname)) {
       if (!isInitialized) setInitialized(true);
       return;
     }
 
-    if (isIdleExpired()) {
-      useAuthStore.getState().clearAuth();
-      setInitialized(true);
-      router.replace("/login");
-      return;
-    }
+    touchActivity();
+    const stored = getStoredToken();
+    setToken(stored);
 
-    const token = getStoredToken();
-    if (!token) {
+    if (isIdleExpired() || !stored) {
       useAuthStore.getState().clearAuth();
       setInitialized(true);
       router.replace("/login");
-      return;
     }
+  }, [pathname, router, setInitialized, setToken, isInitialized]);
+
+  // Bootstrap user once per token — fetch is not cancelled on route changes.
+  useEffect(() => {
+    if (isPublicAuthPath(pathname)) return;
 
     if (user) {
+      if (!isInitialized) setInitialized(true);
+      return;
+    }
+
+    if (!token) {
       if (!isInitialized) setInitialized(true);
       return;
     }
@@ -61,28 +69,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (validatingRef.current) return;
     validatingRef.current = true;
 
-    let cancelled = false;
-
     (async () => {
       try {
         const nextUser = await fetchCurrentUser();
-        if (!cancelled) setUser(nextUser);
-      } catch {
-        if (!cancelled) {
+        setUser(nextUser);
+      } catch (err) {
+        const status = (err as AxiosError)?.response?.status;
+        if (status === 401) {
           useAuthStore.getState().clearAuth();
           router.replace("/login");
         }
       } finally {
         validatingRef.current = false;
-        if (!cancelled) setInitialized(true);
+        setInitialized(true);
       }
     })();
-
-    return () => {
-      cancelled = true;
-      validatingRef.current = false;
-    };
-  }, [pathname, user, isInitialized, router, setUser, setInitialized]);
+  }, [pathname, token, user, isInitialized, router, setUser, setInitialized]);
 
   return <>{children}</>;
 }

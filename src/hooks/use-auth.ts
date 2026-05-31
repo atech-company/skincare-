@@ -14,7 +14,10 @@ export function useAuth() {
     user,
     token,
     hasToken,
+    /** User profile loaded and token present. */
     isAuthenticated: hasToken && !!user,
+    /** Safe to fire authenticated API queries (token restored, bootstrap done). */
+    canFetch: isInitialized && hasToken,
     isReady: isInitialized,
     isLoading: !isInitialized,
   };

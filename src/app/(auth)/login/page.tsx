@@ -96,7 +96,7 @@ export default function LoginPage() {
             <Sparkles className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{settings.app_name}</h1>
-          <p className="text-sm text-slate-500">{settings.app_tagline}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{settings.app_tagline}</p>
         </div>
 
         <Card>

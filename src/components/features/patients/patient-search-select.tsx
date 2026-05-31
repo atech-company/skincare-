@@ -8,6 +8,7 @@ import { unwrapList } from "@/lib/api-data";
 import type { Patient } from "@/types";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 export function PatientSearchSelect({
@@ -17,6 +18,7 @@ export function PatientSearchSelect({
   selected: Patient | null;
   onSelect: (patient: Patient | null) => void;
 }) {
+  const { canFetch } = useAuth();
   const [search, setSearch] = useState("");
   const debounced = useDebouncedValue(search, 300);
 
@@ -28,7 +30,7 @@ export function PatientSearchSelect({
       });
       return unwrapList<Patient>(res.data);
     },
-    enabled: debounced.length >= 1 && !selected,
+    enabled: canFetch && debounced.length >= 1 && !selected,
     staleTime: 30 * 1000,
   });
 

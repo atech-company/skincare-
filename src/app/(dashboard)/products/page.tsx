@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
@@ -33,6 +34,7 @@ function buildProductFormData(values: ProductFormValues, image?: File | null, is
 }
 
 export default function ProductsPage() {
+  const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -40,6 +42,7 @@ export default function ProductsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["products", search],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await api.get("/products", { params: { search } });
       return unwrapList<Product>(res.data);

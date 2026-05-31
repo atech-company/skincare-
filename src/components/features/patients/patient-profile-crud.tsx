@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
@@ -162,6 +163,7 @@ export function DocumentsTab({ uuid, patient, documents }: { uuid: string; patie
 }
 
 export function ProductsTab({ uuid, products }: { uuid: string; products?: PatientProduct[] }) {
+  const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [productUuid, setProductUuid] = useState("");
@@ -169,6 +171,7 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
 
   const { data: catalog } = useQuery({
     queryKey: ["products", "pick"],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await api.get("/products", { params: { per_page: 100 } });
       return unwrapList<Product>(res.data);

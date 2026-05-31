@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Camera,
   DollarSign,
@@ -33,6 +34,7 @@ export function PatientIntakeForm({
   initialMode?: IntakeMode;
   initialPatientUuid?: string;
 }) {
+  const { canFetch } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<IntakeMode>(initialMode);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -72,7 +74,7 @@ export function PatientIntakeForm({
       });
       return res.data.data;
     },
-    enabled: !!initialPatientUuid && mode === "existing",
+    enabled: canFetch && !!initialPatientUuid && mode === "existing",
   });
 
   useEffect(() => {
@@ -493,7 +495,7 @@ export function PatientIntakeForm({
       </Card>
 
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" size="lg" disabled={loading} className="min-w-[220px]">
+        <Button type="submit" size="lg" disabled={loading} className="w-full sm:min-w-[220px] sm:w-auto">
           <Sparkles className="h-4 w-4" />
           {loading
             ? "Saving..."

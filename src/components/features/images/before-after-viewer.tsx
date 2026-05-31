@@ -27,7 +27,7 @@ export function BeforeAfterViewer({
 
   if (!before?.file_url || !after?.file_url) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-slate-500">
+      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 sm:min-h-[16rem]">
         Upload before & after images to compare
       </div>
     );
@@ -43,7 +43,7 @@ export function BeforeAfterViewer({
 
   return (
     <>
-      <div className="relative h-80 overflow-hidden rounded-2xl border border-slate-200/60 shadow-lg">
+      <div className="relative aspect-[4/3] max-h-[28rem] min-h-[12rem] w-full overflow-hidden rounded-2xl border border-slate-200/60 shadow-lg dark:border-slate-700/60 sm:min-h-[16rem] md:aspect-video md:min-h-[18rem]">
         {slider}
         <Button
           size="icon"
@@ -56,14 +56,16 @@ export function BeforeAfterViewer({
       </div>
 
       {fullscreen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 sm:p-4">
           <button
-            className="absolute right-6 top-6 text-white"
+            type="button"
+            className="absolute right-4 top-4 text-white sm:right-6 sm:top-6"
             onClick={() => setFullscreen(false)}
+            aria-label="Close fullscreen"
           >
             <X className="h-6 w-6" />
           </button>
-          <div className={cn("h-[80vh] w-full max-w-5xl")}>{slider}</div>
+          <div className={cn("h-[70vh] w-full max-w-5xl sm:h-[80vh]")}>{slider}</div>
         </div>
       )}
     </>

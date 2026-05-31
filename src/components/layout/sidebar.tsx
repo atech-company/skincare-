@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import {
   Calendar,
   ChevronLeft,
@@ -42,6 +43,15 @@ export function Sidebar({
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const { settings } = useSettingsStore();
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseMobile?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen, onCloseMobile]);
+
   return (
     <>
       {mobileOpen && (
@@ -54,7 +64,7 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200/60 bg-white/70 backdrop-blur-xl transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950/70",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200/60 bg-white/70 backdrop-blur-xl transition-transform duration-200 dark:border-slate-700/60 dark:bg-slate-900/90",
           "w-64 md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           sidebarCollapsed && "md:w-[72px]"
@@ -66,13 +76,13 @@ export function Sidebar({
           </div>
           {!sidebarCollapsed && (
             <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">{settings.app_name}</p>
-              <p className="text-xs text-slate-500">{settings.app_tagline}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{settings.app_name}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{settings.app_tagline}</p>
             </div>
           )}
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {navItems.map((item) => {
             const active =
               item.href === "/patients"
