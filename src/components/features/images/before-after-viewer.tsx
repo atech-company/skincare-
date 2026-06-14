@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Maximize2, X } from "lucide-react";
 import type { TreatmentImage } from "@/types";
+import { mediaUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +34,13 @@ export function BeforeAfterViewer({
     );
   }
 
+  const beforeUrl = mediaUrl(before.file_url);
+  const afterUrl = mediaUrl(after.file_url);
+
   const slider = (
     <ReactCompareSlider
-      itemOne={<ReactCompareSliderImage src={before.file_url} alt="Before" />}
-      itemTwo={<ReactCompareSliderImage src={after.file_url} alt="After" />}
+      itemOne={<ReactCompareSliderImage src={beforeUrl ?? ""} alt="Before" />}
+      itemTwo={<ReactCompareSliderImage src={afterUrl ?? ""} alt="After" />}
       className="h-full w-full rounded-2xl"
     />
   );

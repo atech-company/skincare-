@@ -40,8 +40,11 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      { protocol: "http", hostname: "localhost", pathname: "/storage/**" },
+      { protocol: "http", hostname: "127.0.0.1", pathname: "/storage/**" },
       { protocol: "http", hostname: apiHost, pathname: "/storage/**" },
       { protocol: "https", hostname: apiHost, pathname: "/storage/**" },
+      { protocol: "https", hostname: "**.syc-company.com", pathname: "/storage/**" },
     ],
   },
   experimental: {

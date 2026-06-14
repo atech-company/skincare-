@@ -76,8 +76,14 @@ attachAuthInterceptor(api);
 /** No-op: cookie/CSRF not used in production cross-subdomain setup. */
 export async function ensureCsrf(): Promise<void> {}
 
-export const mediaUrl = (path?: string | null) => {
+export const mediaUrl = (path?: string | null): string | null => {
   if (!path) return null;
+
+  const storageMatch = path.match(/\/storage\/(.+?)(?:\?.*)?$/);
+  if (storageMatch) {
+    return `${API_URL}/storage/${decodeURIComponent(storageMatch[1])}`;
+  }
+
   if (path.startsWith("http")) return path;
   return `${API_URL}/storage/${path.replace(/^\//, "")}`;
 };

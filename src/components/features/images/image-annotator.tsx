@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, mediaUrl } from "@/lib/api";
 import type { TreatmentImage } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +35,7 @@ export function ImageAnnotator({
       const canvas = new fabric.Canvas(canvasRef.current, { width: 600, height: 400 });
       fabricRef.current = canvas;
 
-      fabric.FabricImage.fromURL(image.file_url, { crossOrigin: "anonymous" }).then((img) => {
+      fabric.FabricImage.fromURL(mediaUrl(image.file_url) ?? image.file_url, { crossOrigin: "anonymous" }).then((img) => {
         if (disposed) return;
         const scale = Math.min(600 / (img.width || 600), 400 / (img.height || 400));
         img.scale(scale);

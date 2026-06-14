@@ -18,7 +18,7 @@ import {
   Stethoscope,
   UserPlus,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, mediaUrl } from "@/lib/api";
 import { EMPTY_HISTORY_SUMMARY, normalizePatientHistory } from "@/lib/api-data";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import type { PatientHistoryEvent, PatientHistoryEventType, PatientHistoryPayload } from "@/types/patient-history";
@@ -171,7 +171,7 @@ function VisualGallery({ events }: { events: PatientHistoryEvent[] }) {
             {g.images.map((img) => (
               <div key={img.uuid} className="relative shrink-0">
                 <Image
-                  src={img.thumbnail_url || img.file_url}
+                  src={mediaUrl(img.thumbnail_url || img.file_url) ?? ""}
                   alt={img.type}
                   width={96}
                   height={96}
@@ -207,7 +207,7 @@ function HistoryEventCard({
   const paymentMethod = metaText(event.meta, "payment_method");
   const routinePeriod = metaText(event.meta, "routine_period");
   const appointmentTime = metaText(event.meta, "appointment_time");
-  const fileUrl = metaText(event.meta, "file_url");
+  const fileUrl = mediaUrl(metaText(event.meta, "file_url"));
   const documentUuid = metaText(event.meta, "document_uuid");
 
   return (
@@ -274,7 +274,7 @@ function HistoryEventCard({
                   uuid: documentUuid ?? event.id,
                   title: event.title,
                   category: event.description ?? "document",
-                  file_url: fileUrl,
+                  file_url: fileUrl ?? "",
                   mime_type: metaText(event.meta, "mime_type") ?? "application/octet-stream",
                   file_size: 0,
                   patient_uuid: patientUuid,
@@ -308,7 +308,7 @@ function HistoryEventCard({
           {event.images.map((img) => (
             <Image
               key={img.uuid}
-              src={img.thumbnail_url || img.file_url}
+              src={mediaUrl(img.thumbnail_url || img.file_url) ?? ""}
               alt={img.type}
               width={72}
               height={72}

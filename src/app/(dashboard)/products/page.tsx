@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/lib/api";
+import { api, mediaUrl } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Product } from "@/types";
@@ -153,7 +153,7 @@ export default function ProductsPage() {
             <CardContent className="p-4">
               <div className="flex gap-3">
                 {p.image_url ? (
-                  <Image src={p.image_url} alt="" width={64} height={64} className="h-16 w-16 rounded-lg object-cover" />
+                  <Image src={mediaUrl(p.image_url) ?? ""} alt="" width={64} height={64} className="h-16 w-16 rounded-lg object-cover" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400 dark:bg-slate-800">
                     No img

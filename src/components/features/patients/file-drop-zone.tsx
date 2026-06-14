@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { FileText, ImageIcon, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,23 @@ export function FileDropZone({
     onChange(files.filter((_, i) => i !== index));
   };
 
+  const previews = useMemo(
+    () =>
+      variant === "image"
+        ? files.map((file) => ({
+            file,
+            url: URL.createObjectURL(file),
+          }))
+        : [],
+    [files, variant]
+  );
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, [previews]);
+
   const Icon = variant === "image" ? ImageIcon : FileText;
 
   return (
@@ -73,8 +90,17 @@ export function FileDropZone({
               key={`${file.name}-${i}`}
               className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50"
             >
-              <span className="flex items-center gap-2 truncate">
-                <Icon className="h-4 w-4 shrink-0 text-violet-500" />
+              <span className="flex min-w-0 items-center gap-2">
+                {variant === "image" && previews[i] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={previews[i].url}
+                    alt={file.name}
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+                  />
+                ) : (
+                  <Icon className="h-4 w-4 shrink-0 text-violet-500" />
+                )}
                 <span className="truncate">{file.name}</span>
                 <span className="text-xs text-slate-400">
                   ({(file.size / 1024).toFixed(0)} KB)

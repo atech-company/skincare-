@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Calendar, Phone, Plus, Pencil } from "lucide-react";
 import { PatientHistoryButton, PatientHistoryPanel } from "@/components/features/patients/patient-history-panel";
 import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/lib/api";
+import { api, mediaUrl } from "@/lib/api";
 import type { Patient, TreatmentImage } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -191,7 +191,7 @@ function PatientProfileContent() {
                 {allImages.map((img: TreatmentImage) => (
                   <Image
                     key={img.uuid}
-                    src={img.thumbnail_url || img.file_url}
+                    src={mediaUrl(img.thumbnail_url || img.file_url) ?? ""}
                     alt={img.type}
                     width={160}
                     height={160}
