@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
 import { useFormFields } from "@/hooks/use-form-fields";
-import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
+import { buildFormPayload, initFormState, validateFormFields } from "@/lib/form-field-utils";
 import type { Patient } from "@/types";
 
 export type PatientFormData = Record<string, unknown>;
@@ -34,6 +35,11 @@ export function PatientForm({
       onSubmit={async (e) => {
         e.preventDefault();
         if (!fields?.length) return;
+        const validationError = validateFormFields(fields, values, customFields);
+        if (validationError) {
+          toast.error(validationError);
+          return;
+        }
         await onSubmit(buildFormPayload(fields, values, customFields));
       }}
       className="grid gap-4 sm:grid-cols-2"

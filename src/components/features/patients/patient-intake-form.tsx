@@ -13,7 +13,7 @@ import {
   User,
   UserPlus,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDropZone } from "@/components/features/patients/file-drop-zone";
@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
 import { useFormFields } from "@/hooks/use-form-fields";
-import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
+import { buildFormPayload, initFormState, validateFormFields } from "@/lib/form-field-utils";
 import {
   OptionalTreatmentProducts,
   productLinesToPayload,
@@ -134,19 +134,26 @@ export function PatientIntakeForm({
       toast.error("Please select a patient");
       return;
     }
-    if (mode === "new" && (!patientValues.full_name?.trim() || !patientValues.phone?.trim())) {
-      toast.error("Patient name and phone are required");
+    if (!patientFields?.length || !treatmentFields?.length) return;
+
+    if (mode === "new") {
+      const patientError = validateFormFields(patientFields, patientValues, patientCustom);
+      if (patientError) {
+        toast.error(patientError);
+        return;
+      }
+    }
+
+    const treatmentError = validateFormFields(treatmentFields, treatmentValues, treatmentCustom);
+    if (treatmentError) {
+      toast.error(treatmentError);
       return;
     }
-    if (!treatmentValues.treatment_name?.trim()) {
-      toast.error("Treatment name is required");
-      return;
-    }
+
     if (payment.treatment_fee === "" || Number(payment.treatment_fee) < 0) {
       toast.error("Enter the treatment fee");
       return;
     }
-    if (!patientFields?.length || !treatmentFields?.length) return;
 
     setLoading(true);
     const body = new FormData();
@@ -199,10 +206,7 @@ export function PatientIntakeForm({
       );
       router.push(`/patients/${res.data.data.patient.uuid}`);
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-      const errors = ax.response?.data?.errors;
-      const firstError = errors ? Object.values(errors).flat()[0] : null;
-      toast.error(firstError ?? ax.response?.data?.message ?? "Failed to save");
+      toast.error(extractApiError(err, "Failed to save"));
     } finally {
       setLoading(false);
     }

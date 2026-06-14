@@ -87,3 +87,16 @@ export const mediaUrl = (path?: string | null): string | null => {
   if (path.startsWith("http")) return path;
   return `${API_URL}/storage/${path.replace(/^\//, "")}`;
 };
+
+/** First validation message from a Laravel 422 response, or a fallback. */
+export function extractApiError(err: unknown, fallback = "Request failed"): string {
+  const ax = err as {
+    response?: { data?: { message?: string; errors?: Record<string, string[]> } };
+  };
+  const errors = ax.response?.data?.errors;
+  if (errors) {
+    const first = Object.values(errors).flat().find(Boolean);
+    if (first) return first;
+  }
+  return ax.response?.data?.message ?? fallback;
+}

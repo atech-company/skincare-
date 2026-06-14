@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Patient } from "@/types";
 import { Modal } from "@/components/ui/modal";
@@ -43,8 +43,8 @@ export function PatientCreateModal({
             onClose();
             onCreated?.(res.data.data);
             router.push(`/patients/${res.data.data.uuid}`);
-          } catch {
-            toast.error("Failed to create patient");
+          } catch (err) {
+            toast.error(extractApiError(err, "Failed to create patient"));
           } finally {
             setLoading(false);
           }
@@ -78,8 +78,8 @@ export function PatientEditModal({
             invalidatePatients(queryClient, patient.uuid);
             toast.success("Patient updated");
             onClose();
-          } catch {
-            toast.error("Update failed");
+          } catch (err) {
+            toast.error(extractApiError(err, "Update failed"));
           } finally {
             setLoading(false);
           }

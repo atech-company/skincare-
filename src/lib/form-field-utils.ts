@@ -1,3 +1,5 @@
+import type { FormFieldDefinition } from "@/types/form-fields";
+
 export function slugifyFieldKey(label: string): string {
   return label
     .trim()
@@ -8,7 +10,10 @@ export function slugifyFieldKey(label: string): string {
 }
 
 export function initFormState(
-  definitions: { field_key: string; maps_to_column: string | null }[],
+  definitions: Pick<
+    FormFieldDefinition,
+    "field_key" | "maps_to_column" | "field_type" | "is_required" | "options"
+  >[],
   entity?: Record<string, unknown> | null
 ): { values: Record<string, string>; customFields: Record<string, string> } {
   const customFields: Record<string, string> = {
@@ -32,6 +37,17 @@ export function initFormState(
       delete customFields[def.field_key];
     } else {
       values[def.field_key] = "";
+    }
+  }
+
+  for (const def of definitions) {
+    if (
+      def.field_type === "select" &&
+      def.is_required &&
+      def.options?.length &&
+      !values[def.field_key]?.trim()
+    ) {
+      values[def.field_key] = def.options[0].value;
     }
   }
 
@@ -67,4 +83,32 @@ export function buildFormPayload(
   }
 
   return payload;
+}
+
+export function validateFormFields(
+  definitions: FormFieldDefinition[],
+  values: Record<string, string>,
+  customFields: Record<string, string>,
+  hideKeys: string[] = []
+): string | null {
+  for (const def of definitions) {
+    if (!def.is_active || hideKeys.includes(def.field_key)) continue;
+
+    const raw = def.maps_to_column
+      ? values[def.field_key]
+      : values[def.field_key] ?? customFields[def.field_key];
+
+    if (!def.is_required) continue;
+
+    if (def.field_type === "checkbox") {
+      if (raw !== "true") return `${def.label} is required`;
+      continue;
+    }
+
+    if (raw === undefined || raw === null || String(raw).trim() === "") {
+      return `${def.label} is required`;
+    }
+  }
+
+  return null;
 }
