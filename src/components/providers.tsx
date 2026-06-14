@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { SettingsProvider } from "@/components/settings-provider";
+import { SiteGuard } from "@/components/site-guard";
 import { makeQueryClient } from "@/lib/query-client";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <SiteGuard>{children}</SiteGuard>
+        </AuthProvider>
       </SettingsProvider>
       <Toaster richColors position="top-right" />
     </QueryClientProvider>

@@ -19,18 +19,31 @@ import { CrudActions } from "@/components/shared/crud-actions";
 import { DocumentForm } from "@/components/features/documents/document-form";
 import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { selectClass, labelClass } from "@/lib/form-styles";
 
 export default function DocumentsPage() {
   const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selected, setSelected] = useState<Document | null>(null);
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [category, setCategory] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["documents"],
+    queryKey: ["documents", search, dateFrom, dateTo, category],
     enabled: canFetch,
     queryFn: async () => {
-      const res = await api.get("/documents");
+      const res = await api.get("/documents", {
+        params: {
+          search: search || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+          category: category || undefined,
+        },
+      });
       return unwrapList<Document>(res.data);
     },
     staleTime: 60 * 1000,
@@ -39,20 +52,25 @@ export default function DocumentsPage() {
   const uploadMutation = useMutation({
     mutationFn: async ({
       patient,
-      title,
-      category,
       file,
+      payload,
     }: {
       patient: { uuid: string };
-      title: string;
-      category: string;
       file: File;
+      payload: Record<string, unknown>;
     }) => {
       const form = new FormData();
       form.append("patient_uuid", patient.uuid);
-      form.append("title", title);
-      form.append("category", category);
       form.append("file", file);
+      Object.entries(payload).forEach(([key, val]) => {
+        if (key === "custom_fields" && val && typeof val === "object") {
+          Object.entries(val as Record<string, string>).forEach(([ck, cv]) => {
+            form.append(`custom_fields[${ck}]`, String(cv));
+          });
+        } else if (val != null && val !== "") {
+          form.append(key, String(val));
+        }
+      });
       await api.post("/documents", form, { headers: { "Content-Type": "multipart/form-data" } });
     },
     onSuccess: () => {
@@ -93,6 +111,32 @@ export default function DocumentsPage() {
         <Button className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
           <Plus className="h-4 w-4" /> Upload
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <Input
+          className="max-w-xs"
+          placeholder="Search title or patient..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div>
+          <label className={labelClass}>From</label>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass}>To</label>
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass}>Category</label>
+          <select className={selectClass} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">All</option>
+            {["lab_report", "consent", "prescription", "image", "other"].map((c) => (
+              <option key={c} value={c}>{c.replace("_", " ")}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className={cn("grid gap-6", selected && "lg:grid-cols-2")}>

@@ -10,6 +10,11 @@ const API_URL = getApiBaseUrl();
 
 function attachAuthInterceptor(client: AxiosInstance) {
   client.interceptors.request.use((config) => {
+    // FormData must not use application/json — browser needs to set multipart boundary.
+    if (config.data instanceof FormData) {
+      config.headers.delete("Content-Type");
+    }
+
     if (isIdleExpired()) {
       useAuthStore.getState().clearAuth();
       return Promise.reject(new Error("SESSION_IDLE_EXPIRED"));
@@ -37,6 +42,16 @@ function attachAuthInterceptor(client: AxiosInstance) {
       const hadToken = typeof auth === "string" && auth.startsWith("Bearer ");
       if (status === 401 && hadToken) {
         useAuthStore.getState().clearAuth();
+      }
+      if (status === 503 && error?.response?.data?.code === "site_disabled") {
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/maintenance")) {
+          window.location.href = "/maintenance";
+        }
+      }
+      if (status === 403 && error?.response?.data?.code === "platform_only") {
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/platform")) {
+          window.location.href = "/platform";
+        }
       }
       return Promise.reject(error);
     }

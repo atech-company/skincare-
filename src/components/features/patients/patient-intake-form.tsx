@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Camera,
-  DollarSign,
   FileText,
   Sparkles,
   Stethoscope,
@@ -16,14 +15,23 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDropZone } from "@/components/features/patients/file-drop-zone";
 import { PatientSearchSelect } from "@/components/features/patients/patient-search-select";
-import { cn, formatCurrency } from "@/lib/utils";
+import { SessionCheckoutSection } from "@/components/features/treatments/session-checkout-section";
+import { useModuleAccess } from "@/hooks/use-module-access";
+import { ModuleLockedOverlay } from "@/components/layout/module-locked-overlay";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
+import { useFormFields } from "@/hooks/use-form-fields";
+import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
+import {
+  OptionalTreatmentProducts,
+  productLinesToPayload,
+  type TreatmentProductLine,
+} from "@/components/features/treatments/optional-treatment-products";
 import type { Patient } from "@/types";
-
-const SKIN_TYPES = ["normal", "dry", "oily", "combination", "sensitive"] as const;
 
 type IntakeMode = "new" | "existing";
 
@@ -45,26 +53,22 @@ export function PatientIntakeForm({
   const [progressImages, setProgressImages] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
 
-  const [form, setForm] = useState({
-    full_name: "",
-    phone: "",
-    gender: "female",
-    dob: "",
-    address: "",
-    skin_type: "combination",
-    allergies: "",
-    medical_history: "",
-    notes: "",
-    treatment_name: "",
-    diagnosis: "",
-    session_notes: "",
-    follow_up_notes: "",
-    total_price: "",
-    session_date: new Date().toISOString().slice(0, 10),
+  const [payment, setPayment] = useState({
+    treatment_fee: "",
     payment_method: "cash",
     payment_status: "paid",
     record_payment: true,
   });
+  const [productSubtotal, setProductSubtotal] = useState(0);
+
+  const { data: patientFields } = useFormFields("patient");
+  const { data: treatmentFields } = useFormFields("treatment_session");
+  const [patientValues, setPatientValues] = useState<Record<string, string>>({});
+  const [patientCustom, setPatientCustom] = useState<Record<string, string>>({});
+  const [treatmentValues, setTreatmentValues] = useState<Record<string, string>>({});
+  const [treatmentCustom, setTreatmentCustom] = useState<Record<string, string>>({});
+  const [productLines, setProductLines] = useState<TreatmentProductLine[]>([]);
+  const { canInteract: canUsePayments } = useModuleAccess("payments");
 
   const { data: preloadedPatient } = useQuery({
     queryKey: ["patient", initialPatientUuid],
@@ -78,52 +82,71 @@ export function PatientIntakeForm({
   });
 
   useEffect(() => {
+    if (!patientFields?.length) return;
+    const entity = mode === "existing" ? (selectedPatient as Record<string, unknown> | null) : null;
+    const state = initFormState(patientFields, entity);
+    if (mode === "new" && !state.values.gender) state.values.gender = "female";
+    if (mode === "new" && !state.values.skin_type) state.values.skin_type = "combination";
+    setPatientValues(state.values);
+    setPatientCustom(state.customFields);
+  }, [patientFields, selectedPatient, mode]);
+
+  useEffect(() => {
+    if (!treatmentFields?.length) return;
+    const state = initFormState(treatmentFields, null);
+    if (!state.values.session_date) state.values.session_date = new Date().toISOString().slice(0, 10);
+    setTreatmentValues(state.values);
+    setTreatmentCustom(state.customFields);
+  }, [treatmentFields]);
+
+  const updatePayment = (key: keyof typeof payment, value: string | boolean) =>
+    setPayment((f) => ({ ...f, [key]: value }));
+
+  useEffect(() => {
     if (preloadedPatient && !selectedPatient) {
       setSelectedPatient(preloadedPatient);
-      setForm((f) => ({
-        ...f,
-        skin_type: preloadedPatient.skin_type ?? f.skin_type,
-        allergies: preloadedPatient.allergies ?? "",
-        medical_history: preloadedPatient.medical_history ?? "",
-        notes: preloadedPatient.notes ?? "",
-      }));
     }
   }, [preloadedPatient, selectedPatient]);
 
-  useEffect(() => {
-    if (selectedPatient && mode === "existing") {
-      setForm((f) => ({
-        ...f,
-        skin_type: selectedPatient.skin_type ?? f.skin_type,
-        allergies: selectedPatient.allergies ?? "",
-        medical_history: selectedPatient.medical_history ?? "",
-        notes: selectedPatient.notes ?? "",
-      }));
-    }
-  }, [selectedPatient, mode]);
+  const appendPayload = (body: FormData, payload: Record<string, unknown>) => {
+    Object.entries(payload).forEach(([key, val]) => {
+      if (key === "custom_fields" && val && typeof val === "object") {
+        Object.entries(val as Record<string, string>).forEach(([ck, cv]) => {
+          body.append(`custom_fields[${ck}]`, String(cv));
+        });
+      } else if (val != null && val !== "") {
+        body.append(key, String(val));
+      }
+    });
+  };
 
-  const set = (key: keyof typeof form, value: string | boolean) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const appendImageFiles = (body: FormData, key: string, files: File[]) => {
+    files
+      .filter((f) => f instanceof File && f.size > 0 && /^image\/(jpeg|png|webp)$/i.test(f.type))
+      .forEach((f, i) => body.append(`${key}[${i}]`, f, f.name));
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (mode === "existing" && !selectedPatient) {
       toast.error("Please select a patient");
       return;
     }
-    if (mode === "new" && (!form.full_name.trim() || !form.phone.trim())) {
+    if (mode === "new" && (!patientValues.full_name?.trim() || !patientValues.phone?.trim())) {
       toast.error("Patient name and phone are required");
       return;
     }
-    if (!form.treatment_name.trim()) {
+    if (!treatmentValues.treatment_name?.trim()) {
       toast.error("Treatment name is required");
       return;
     }
-    if (!form.total_price || Number(form.total_price) < 0) {
-      toast.error("Enter the total treatment cost");
+    if (payment.treatment_fee === "" || Number(payment.treatment_fee) < 0) {
+      toast.error("Enter the treatment fee");
       return;
     }
+    if (!patientFields?.length || !treatmentFields?.length) return;
 
     setLoading(true);
     const body = new FormData();
@@ -131,48 +154,54 @@ export function PatientIntakeForm({
 
     if (mode === "existing" && selectedPatient) {
       body.append("patient_uuid", selectedPatient.uuid);
-      const updateFields = ["skin_type", "allergies", "medical_history", "notes"] as const;
-      updateFields.forEach((key) => {
-        const v = form[key];
-        if (typeof v === "string" && v !== "") body.append(key, v);
-      });
+      appendPayload(body, buildFormPayload(patientFields, patientValues, patientCustom));
     } else {
-      const newPatientFields = [
-        "full_name", "phone", "gender", "dob", "address", "skin_type",
-        "allergies", "medical_history", "notes",
-      ] as const;
-      newPatientFields.forEach((key) => {
-        const v = form[key];
-        if (typeof v === "string" && v !== "") body.append(key, v);
-      });
+      appendPayload(body, buildFormPayload(patientFields, patientValues, patientCustom));
     }
 
-    const treatmentFields = [
-      "treatment_name", "diagnosis", "session_notes", "follow_up_notes",
-      "total_price", "session_date", "payment_method", "payment_status",
-    ] as const;
-    treatmentFields.forEach((key) => {
-      const v = form[key];
-      if (typeof v === "string" && v !== "") body.append(key, v);
-    });
-    body.append("record_payment", form.record_payment ? "1" : "0");
+    const treatmentPayload = buildFormPayload(treatmentFields, treatmentValues, treatmentCustom);
+    delete treatmentPayload.total_price;
+    appendPayload(body, treatmentPayload);
+    body.append("treatment_fee", payment.treatment_fee);
+    if (canUsePayments) {
+      body.append("payment_method", payment.payment_method);
+      body.append("payment_status", payment.payment_status);
+      body.append("record_payment", payment.record_payment ? "1" : "0");
+    } else {
+      body.append("record_payment", "0");
+    }
 
-    beforeImages.forEach((f) => body.append("before_images[]", f));
-    afterImages.forEach((f) => body.append("after_images[]", f));
-    progressImages.forEach((f) => body.append("progress_images[]", f));
-    documents.forEach((f) => body.append("documents[]", f));
+    productLinesToPayload(productLines).forEach((sale, i) => {
+      body.append(`product_sales[${i}][product_uuid]`, sale.product_uuid);
+      body.append(`product_sales[${i}][quantity]`, String(sale.quantity));
+    });
+
+    const appendImages = (key: string, files: File[]) => {
+      files
+        .filter((f) => f instanceof File && f.size > 0)
+        .forEach((f, i) => body.append(`${key}[${i}]`, f, f.name));
+    };
+
+    appendImages("before_images", beforeImages);
+    appendImages("after_images", afterImages);
+    appendImages("progress_images", progressImages);
+    documents
+      .filter((f) => f instanceof File && f.size > 0)
+      .forEach((f, i) => body.append(`documents[${i}]`, f, f.name));
 
     try {
-      const res = await api.post("/intake", body, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success(res.data.message ?? "Saved successfully");
+      const res = await api.post("/intake", body);
+      const productCount = productLinesToPayload(productLines).length;
+      toast.success(
+        productCount > 0
+          ? `${res.data.message ?? "Saved"} — ${productCount} product(s) attached`
+          : res.data.message ?? "Saved successfully"
+      );
       router.push(`/patients/${res.data.data.patient.uuid}`);
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-      const firstError = ax.response?.data?.errors
-        ? Object.values(ax.response.data.errors)[0]?.[0]
-        : null;
+      const errors = ax.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat()[0] : null;
       toast.error(firstError ?? ax.response?.data?.message ?? "Failed to save");
     } finally {
       setLoading(false);
@@ -180,11 +209,20 @@ export function PatientIntakeForm({
   };
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-4xl space-y-6 pb-12">
+    <form
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+          e.preventDefault();
+        }
+      }}
+      className="mx-auto max-w-4xl space-y-6 pb-12"
+    >
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Patient Intake</h1>
         <p className="text-slate-500">
-          One form for new patients or adding a treatment to someone already in your clinic.
+          New patient or existing patient + treatment. In the treatment section, search and add products
+          instantly — optional.
         </p>
       </div>
 
@@ -237,117 +275,27 @@ export function PatientIntakeForm({
         <CardContent>
           {mode === "existing" ? (
             <div className="space-y-6">
-              <PatientSearchSelect
-                selected={selectedPatient}
-                onSelect={setSelectedPatient}
-              />
+              <PatientSearchSelect selected={selectedPatient} onSelect={setSelectedPatient} />
               {selectedPatient && (
-                <div className="grid gap-4 sm:grid-cols-2 border-t border-slate-100 pt-6 dark:border-slate-800">
-                  <p className="sm:col-span-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Update skin profile (optional)
-                  </p>
-                  <div>
-                    <label className="text-sm font-medium">Skin type</label>
-                    <select
-                      className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                      value={form.skin_type}
-                      onChange={(e) => set("skin_type", e.target.value)}
-                    >
-                      {SKIN_TYPES.map((s) => (
-                        <option key={s} value={s}>
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-sm font-medium">Allergies</label>
-                    <Input value={form.allergies} onChange={(e) => set("allergies", e.target.value)} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-sm font-medium">Medical history</label>
-                    <textarea
-                      className="mt-1 min-h-[72px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                      value={form.medical_history}
-                      onChange={(e) => set("medical_history", e.target.value)}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-sm font-medium">General notes</label>
-                    <textarea
-                      className="mt-1 min-h-[60px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                      value={form.notes}
-                      onChange={(e) => set("notes", e.target.value)}
-                    />
-                  </div>
-                </div>
+                <DynamicFormFields
+                  entityType="patient"
+                  values={patientValues}
+                  customFields={patientCustom}
+                  onValuesChange={setPatientValues}
+                  onCustomFieldsChange={setPatientCustom}
+                  hideKeys={["full_name", "phone", "gender", "dob", "address"]}
+                />
               )}
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Full name *</label>
-                <Input value={form.full_name} onChange={(e) => set("full_name", e.target.value)} required />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Phone *</label>
-                <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} required />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Gender</label>
-                <select
-                  className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={form.gender}
-                  onChange={(e) => set("gender", e.target.value)}
-                >
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Date of birth</label>
-                <Input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Skin type *</label>
-                <select
-                  className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={form.skin_type}
-                  onChange={(e) => set("skin_type", e.target.value)}
-                >
-                  {SKIN_TYPES.map((s) => (
-                    <option key={s} value={s}>
-                      {s.charAt(0).toUpperCase() + s.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Address</label>
-                <Input value={form.address} onChange={(e) => set("address", e.target.value)} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Allergies</label>
-                <Input value={form.allergies} onChange={(e) => set("allergies", e.target.value)} placeholder="None / list allergies" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Medical history</label>
-                <textarea
-                  className="mt-1 min-h-[72px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={form.medical_history}
-                  onChange={(e) => set("medical_history", e.target.value)}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">General notes</label>
-                <textarea
-                  className="mt-1 min-h-[60px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={form.notes}
-                  onChange={(e) => set("notes", e.target.value)}
-                />
-              </div>
-            </div>
+            <DynamicFormFields
+              entityType="patient"
+              values={patientValues}
+              customFields={patientCustom}
+              onValuesChange={setPatientValues}
+              onCustomFieldsChange={setPatientCustom}
+              className="grid gap-4 sm:grid-cols-2"
+            />
           )}
         </CardContent>
       </Card>
@@ -359,110 +307,74 @@ export function PatientIntakeForm({
             <Stethoscope className="h-5 w-5 text-violet-600" />
             Treatment Session
           </CardTitle>
-          <CardDescription>Diagnosis, notes & session date</CardDescription>
+          <CardDescription>
+            Diagnosis, notes, session date — search products below to add them immediately
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium">Treatment name *</label>
-            <Input
-              placeholder="e.g. HydraFacial Deluxe, Chemical Peel, Laser"
-              value={form.treatment_name}
-              onChange={(e) => set("treatment_name", e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Session date *</label>
-            <Input type="date" value={form.session_date} onChange={(e) => set("session_date", e.target.value)} required />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium">Diagnosis / skin concern</label>
-            <textarea
-              className="mt-1 min-h-[72px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-              placeholder="e.g. Acne, hyperpigmentation, dehydration..."
-              value={form.diagnosis}
-              onChange={(e) => set("diagnosis", e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium">Session notes</label>
-            <textarea
-              className="mt-1 min-h-[72px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={form.session_notes}
-              onChange={(e) => set("session_notes", e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium">Follow-up notes</label>
-            <textarea
-              className="mt-1 min-h-[60px] w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={form.follow_up_notes}
-              onChange={(e) => set("follow_up_notes", e.target.value)}
-            />
-          </div>
+        <CardContent>
+          <DynamicFormFields
+            entityType="treatment_session"
+            values={treatmentValues}
+            customFields={treatmentCustom}
+            onValuesChange={setTreatmentValues}
+            onCustomFieldsChange={setTreatmentCustom}
+            hideKeys={["total_price", "status"]}
+          />
+          <OptionalTreatmentProducts
+            lines={productLines}
+            onChange={setProductLines}
+            onSubtotalChange={setProductSubtotal}
+            embedded
+          />
         </CardContent>
       </Card>
 
-      <Card className="border-violet-200/60 bg-gradient-to-br from-violet-50/40 to-transparent dark:border-violet-900/40 dark:from-violet-950/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-violet-600" />
-            Treatment Cost
-          </CardTitle>
-          <CardDescription>Total price for this session</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="text-sm font-medium">Total cost (USD) *</label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={form.total_price}
-              onChange={(e) => set("total_price", e.target.value)}
-              required
+      {canUsePayments ? (
+        <SessionCheckoutSection
+          treatmentFee={payment.treatment_fee}
+          onTreatmentFeeChange={(v) => updatePayment("treatment_fee", v)}
+          productSubtotal={productSubtotal}
+          paymentMethod={payment.payment_method}
+          onPaymentMethodChange={(v) => updatePayment("payment_method", v)}
+          paymentStatus={payment.payment_status}
+          onPaymentStatusChange={(v) => updatePayment("payment_status", v)}
+          recordPayment={payment.record_payment}
+          onRecordPaymentChange={(v) => updatePayment("record_payment", v)}
+        />
+      ) : (
+        <>
+          <Card>
+            <CardContent className="pt-6">
+              <label className="text-sm font-medium">Treatment fee (USD) *</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                className="mt-1 max-w-xs"
+                value={payment.treatment_fee}
+                onChange={(e) => updatePayment("treatment_fee", e.target.value)}
+                required
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Session price is saved; payment recording requires admin access.
+              </p>
+            </CardContent>
+          </Card>
+          <ModuleLockedOverlay title="Payments — locked">
+            <SessionCheckoutSection
+              treatmentFee={payment.treatment_fee}
+              onTreatmentFeeChange={(v) => updatePayment("treatment_fee", v)}
+              productSubtotal={productSubtotal}
+              paymentMethod={payment.payment_method}
+              onPaymentMethodChange={(v) => updatePayment("payment_method", v)}
+              paymentStatus={payment.payment_status}
+              onPaymentStatusChange={(v) => updatePayment("payment_status", v)}
+              recordPayment={false}
+              onRecordPaymentChange={() => {}}
             />
-            {form.total_price && (
-              <p className="mt-1 text-xs text-violet-600">{formatCurrency(Number(form.total_price))}</p>
-            )}
-          </div>
-          <div>
-            <label className="text-sm font-medium">Payment method</label>
-            <select
-              className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={form.payment_method}
-              onChange={(e) => set("payment_method", e.target.value)}
-            >
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium">Payment status</label>
-            <select
-              className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={form.payment_status}
-              onChange={(e) => set("payment_status", e.target.value)}
-            >
-              <option value="paid">Paid</option>
-              <option value="pending">Pending</option>
-              <option value="partial">Partial</option>
-            </select>
-          </div>
-          <label className="flex items-center gap-2 text-sm sm:col-span-3">
-            <input
-              type="checkbox"
-              checked={form.record_payment}
-              onChange={(e) => set("record_payment", e.target.checked)}
-              className="rounded border-slate-300"
-            />
-            Record payment linked to this treatment
-          </label>
-        </CardContent>
-      </Card>
+          </ModuleLockedOverlay>
+        </>
+      )}
 
       <Card>
         <CardHeader>

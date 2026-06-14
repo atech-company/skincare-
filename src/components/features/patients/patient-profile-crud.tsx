@@ -6,18 +6,20 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
-import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import { deletePatient } from "@/components/features/patients/patient-crud-modals";
-import { selectClass } from "@/lib/form-styles";
+import { labelClass, selectClass } from "@/lib/form-styles";
+import { ProductSearchSelect } from "@/components/features/products/product-search-select";
 import type { Patient, PatientProduct, Payment, Product } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { CrudActions } from "@/components/shared/crud-actions";
+import { ExportPrintMenu, paymentInvoiceItems } from "@/components/shared/export-print-menu";
+import { useModuleAccess } from "@/hooks/use-module-access";
+import { ModuleLockedOverlay } from "@/components/layout/module-locked-overlay";
 import { PaymentForm } from "@/components/features/payments/payment-form";
 import { DocumentForm } from "@/components/features/documents/document-form";
 import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
@@ -66,22 +68,20 @@ export function PaymentsTab({ uuid, payments }: { uuid: string; payments?: Payme
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
+  const { canInteract, locked } = useModuleAccess("payments");
 
-  const save = async (values: {
-    amount: string;
-    payment_method: string;
-    status: string;
-    reference: string;
-    notes: string;
-    paid_at: string;
-  }) => {
+  const { data: balance } = useQuery({
+    queryKey: ["patient-balance", uuid],
+    queryFn: async () => {
+      const res = await api.get<{ data: import("@/types").PatientBalance }>(`/patients/${uuid}/balance`);
+      return res.data.data;
+    },
+  });
+
+  const save = async (values: Record<string, unknown> & { treatment_session_uuid?: string }) => {
     const body = {
-      amount: parseFloat(values.amount),
-      payment_method: values.payment_method,
-      status: values.status,
-      reference: values.reference || null,
-      notes: values.notes || null,
-      paid_at: values.paid_at || null,
+      ...values,
+      treatment_session_uuid: values.treatment_session_uuid || null,
     };
     if (editing) {
       await api.put(`/payments/${editing.id}`, body);
@@ -91,32 +91,105 @@ export function PaymentsTab({ uuid, payments }: { uuid: string; payments?: Payme
       toast.success("Payment recorded");
     }
     queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["patient-balance", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
     setOpen(false);
     setEditing(null);
   };
 
-  return (
+  const body = (
     <div className="space-y-4">
-      <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-        <Plus className="h-4 w-4" /> Record payment
-      </Button>
+      {balance && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-slate-500">Total charged</p>
+              <p className="font-semibold">{formatCurrency(balance.total_amount)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Paid</p>
+              <p className="font-semibold text-emerald-600">{formatCurrency(balance.paid_amount)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Still owed</p>
+              <p
+                className={
+                  balance.balance > 0
+                    ? "font-semibold text-amber-600"
+                    : "font-semibold text-emerald-600"
+                }
+              >
+                {balance.balance > 0 ? formatCurrency(balance.balance) : "Nothing owed"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Status</p>
+              <Badge variant={balance.status === "paid" ? "success" : "warning"}>
+                {balance.status === "paid" ? "Paid in full" : balance.status}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {canInteract && (
+          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="h-4 w-4" /> Record payment
+          </Button>
+        )}
+        {canInteract && (
+          <ExportPrintMenu
+            items={[
+              { type: "export", path: `exports/patients/${uuid}/statement`, label: "Statement PDF (A4)", paper: "a4" },
+              { type: "export", path: `exports/patients/${uuid}/statement`, label: "Print statement", paper: "a4", print: true },
+            ]}
+            label="Export statement"
+            size="sm"
+          />
+        )}
+      </div>
       {!payments?.length && <p className="text-slate-500">No payments.</p>}
       {payments?.map((p) => (
         <Card key={p.uuid}>
           <CardContent className="flex items-center justify-between p-4">
-            <span>{formatCurrency(Number(p.amount))} · {p.payment_method}</span>
+            <div>
+              <span>{formatCurrency(Number(p.amount))} · {p.payment_method}</span>
+              {p.treatment_name && (
+                <p className="text-xs text-slate-500">{p.treatment_name}</p>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <Badge variant={p.status === "paid" ? "success" : "warning"}>{p.status}</Badge>
-              <CrudActions onEdit={() => { setEditing(p); setOpen(true); }} />
+              {canInteract && (
+                <ExportPrintMenu
+                  items={paymentInvoiceItems(uuid, p.uuid)}
+                  label="Receipt"
+                  size="sm"
+                  variant="ghost"
+                />
+              )}
+              {canInteract && (
+                <CrudActions onEdit={() => { setEditing(p); setOpen(true); }} />
+              )}
             </div>
           </CardContent>
         </Card>
       ))}
       <Modal open={open} onClose={() => { setOpen(false); setEditing(null); }} title={editing ? "Edit payment" : "Record payment"}>
-        <PaymentForm initial={editing ?? undefined} onSubmit={save} />
+        <PaymentForm patientUuid={uuid} initial={editing ?? undefined} onSubmit={save} />
       </Modal>
     </div>
   );
+
+  if (locked) {
+    return (
+      <ModuleLockedOverlay title="Payments — locked">
+        {body}
+      </ModuleLockedOverlay>
+    );
+  }
+
+  return body;
 }
 
 export function DocumentsTab({ uuid, patient, documents }: { uuid: string; patient: Patient; documents?: Patient["documents"] }) {
@@ -185,9 +258,16 @@ export function DocumentsTab({ uuid, patient, documents }: { uuid: string; patie
           onSubmit={async (v) => {
             const form = new FormData();
             form.append("patient_uuid", v.patient.uuid);
-            form.append("title", v.title);
-            form.append("category", v.category);
             form.append("file", v.file);
+            Object.entries(v.payload).forEach(([key, val]) => {
+              if (key === "custom_fields" && val && typeof val === "object") {
+                Object.entries(val as Record<string, string>).forEach(([ck, cv]) => {
+                  form.append(`custom_fields[${ck}]`, String(cv));
+                });
+              } else if (val != null && val !== "") {
+                form.append(key, String(val));
+              }
+            });
             await api.post("/documents", form, { headers: { "Content-Type": "multipart/form-data" } });
             queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
             toast.success("Uploaded");
@@ -200,30 +280,29 @@ export function DocumentsTab({ uuid, patient, documents }: { uuid: string; patie
 }
 
 export function ProductsTab({ uuid, products }: { uuid: string; products?: PatientProduct[] }) {
-  const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [productUuid, setProductUuid] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [period, setPeriod] = useState("morning");
+  const [assigning, setAssigning] = useState(false);
 
-  const { data: catalog } = useQuery({
-    queryKey: ["products", "pick"],
-    enabled: canFetch,
-    queryFn: async () => {
-      const res = await api.get("/products", { params: { per_page: 100 } });
-      return unwrapList<Product>(res.data);
-    },
-  });
-
-  const assign = async () => {
-    if (!productUuid) return;
-    await api.post(`/patients/${uuid}/products`, {
-      product_uuid: productUuid,
-      routine_period: period,
-    });
-    queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
-    toast.success("Product assigned");
-    setOpen(false);
+  const assignProduct = async (product: Product) => {
+    setAssigning(true);
+    try {
+      await api.post(`/patients/${uuid}/products`, {
+        product_uuid: product.uuid,
+        routine_period: period,
+      });
+      queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
+      toast.success(`${product.product_name} assigned (${period})`);
+      setSelectedProduct(null);
+      setOpen(false);
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string } } };
+      toast.error(ax.response?.data?.message ?? "Could not assign product");
+    } finally {
+      setAssigning(false);
+    }
   };
 
   const remove = async (pp: PatientProduct) => {
@@ -259,18 +338,26 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
       </div>
       <Modal open={open} onClose={() => setOpen(false)} title="Assign product">
         <div className="space-y-4">
-          <select className={selectClass} value={productUuid} onChange={(e) => setProductUuid(e.target.value)}>
-            <option value="">Select product</option>
-            {catalog?.map((p) => (
-              <option key={p.uuid} value={p.uuid}>{p.product_name}</option>
-            ))}
-          </select>
-          <select className={selectClass} value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="morning">Morning</option>
-            <option value="night">Night</option>
-            <option value="other">Other</option>
-          </select>
-          <Button className="w-full" onClick={assign}>Assign</Button>
+          <div>
+            <label className={labelClass}>Routine</label>
+            <select className={selectClass} value={period} onChange={(e) => setPeriod(e.target.value)}>
+              <option value="morning">Morning</option>
+              <option value="night">Night</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Search product</label>
+            <p className="mb-2 text-xs text-slate-500">Pick a result to assign it immediately.</p>
+            <ProductSearchSelect
+              selected={selectedProduct}
+              onSelect={(p) => {
+                if (p) assignProduct(p);
+                else setSelectedProduct(null);
+              }}
+            />
+          </div>
+          {assigning && <p className="text-sm text-slate-500">Assigning…</p>}
         </div>
       </Modal>
     </div>

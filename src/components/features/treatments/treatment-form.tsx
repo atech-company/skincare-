@@ -1,87 +1,320 @@
 "use client";
 
-import { useState } from "react";
+
+
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { selectClass, textareaClass } from "@/lib/form-styles";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
+
 import { PatientSearchSelect } from "@/components/features/patients/patient-search-select";
+
+import { useFormFields } from "@/hooks/use-form-fields";
+
+import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
+
+import {
+
+  OptionalTreatmentProducts,
+
+  productLinesToPayload,
+
+  type TreatmentProductLine,
+
+} from "@/components/features/treatments/optional-treatment-products";
+
+import { SessionCheckoutSection } from "@/components/features/treatments/session-checkout-section";
+
 import type { Patient, TreatmentSession } from "@/types";
 
+
+
 export function TreatmentForm({
+
   initial,
+
   showPatientPicker,
+
   defaultPatientUuid,
+
   onSubmit,
+
   loading,
+
+  showProducts = true,
+
+  showCheckout = false,
+
 }: {
+
   initial?: TreatmentSession;
+
   showPatientPicker?: boolean;
+
   defaultPatientUuid?: string;
-  onSubmit: (values: {
-    patient_uuid: string;
-    treatment_name: string;
-    diagnosis: string;
-    session_notes: string;
-    follow_up_notes: string;
-    total_price: number;
-    session_date: string;
-    status: string;
-  }) => Promise<void>;
+
+  onSubmit: (values: Record<string, unknown> & { patient_uuid: string }) => Promise<void>;
+
   loading?: boolean;
+
+  /** Show optional product lines (create / intake only) */
+
+  showProducts?: boolean;
+
+  /** Payment block (treatment fee + products = recorded payment) */
+
+  showCheckout?: boolean;
+
 }) {
+
+  const { data: fields } = useFormFields("treatment_session");
+
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [form, setForm] = useState({
-    treatment_name: initial?.treatment_name ?? "",
-    diagnosis: initial?.diagnosis ?? "",
-    session_notes: initial?.session_notes ?? "",
-    follow_up_notes: initial?.follow_up_notes ?? "",
-    total_price: initial ? String(initial.total_price) : "",
-    session_date: initial?.session_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-    status: initial?.status ?? "scheduled",
+
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+
+  const [productLines, setProductLines] = useState<TreatmentProductLine[]>([]);
+
+  const [productSubtotal, setProductSubtotal] = useState(0);
+
+  const [payment, setPayment] = useState({
+
+    treatment_fee: "",
+
+    payment_method: "cash",
+
+    payment_status: "paid",
+
+    record_payment: true,
+
   });
 
-  const set = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }));
+
+
+  const hideKeys = initial
+
+    ? []
+
+    : ["follow_up_notes", "status", ...(showCheckout ? ["total_price"] : [])];
+
+  const attachProducts = showProducts && !initial;
+
+  const attachCheckout = showCheckout && !initial;
+
+
+
+  useEffect(() => {
+
+    if (!fields?.length) return;
+
+    const state = initFormState(fields, initial as Record<string, unknown> | undefined);
+
+    if (!initial) {
+
+      state.values.session_date = state.values.session_date || new Date().toISOString().slice(0, 10);
+
+      state.values.status = state.values.status || "scheduled";
+
+    }
+
+    setValues(state.values);
+
+    setCustomFields(state.customFields);
+
+    if (!initial && state.values.total_price) {
+
+      setPayment((p) => ({ ...p, treatment_fee: String(state.values.total_price) }));
+
+    }
+
+  }, [fields, initial]);
+
+
+
+  const setPay = (key: keyof typeof payment, value: string | boolean) =>
+
+    setPayment((f) => ({ ...f, [key]: value }));
+
+
 
   return (
+
     <form
+
       onSubmit={async (e) => {
+
         e.preventDefault();
+
+        if (!fields?.length) return;
+
         const patientUuid = patient?.uuid ?? defaultPatientUuid;
+
         if (showPatientPicker && !patientUuid) return;
-        await onSubmit({
+
+
+
+        if (attachCheckout && (payment.treatment_fee === "" || Number(payment.treatment_fee) < 0)) {
+          toast.error("Enter the treatment fee");
+          return;
+        }
+
+
+
+        const sales = productLinesToPayload(productLines);
+
+        const payload: Record<string, unknown> = {
+
           patient_uuid: patientUuid ?? "",
-          treatment_name: form.treatment_name,
-          diagnosis: form.diagnosis,
-          session_notes: form.session_notes,
-          follow_up_notes: form.follow_up_notes,
-          total_price: parseFloat(form.total_price) || 0,
-          session_date: form.session_date,
-          status: form.status,
-        });
+
+          ...buildFormPayload(fields, values, customFields),
+
+          ...(sales.length ? { product_sales: sales } : {}),
+
+        };
+
+
+
+        if (attachCheckout) {
+
+          payload.treatment_fee = payment.treatment_fee;
+
+          payload.payment_method = payment.payment_method;
+
+          payload.payment_status = payment.payment_status;
+
+          payload.record_payment = payment.record_payment;
+
+          delete payload.total_price;
+
+        }
+
+
+
+        await onSubmit(payload as Record<string, unknown> & { patient_uuid: string });
+
       }}
+
       className="space-y-4"
+
     >
+
       {showPatientPicker && <PatientSearchSelect selected={patient} onSelect={setPatient} />}
-      <Input placeholder="Treatment name *" value={form.treatment_name} onChange={(e) => set("treatment_name", e.target.value)} required />
-      <Input placeholder="Diagnosis" value={form.diagnosis} onChange={(e) => set("diagnosis", e.target.value)} />
-      <textarea className={textareaClass} placeholder="Session notes" value={form.session_notes} onChange={(e) => set("session_notes", e.target.value)} />
-      {initial && (
-        <textarea className={textareaClass} placeholder="Follow-up notes" value={form.follow_up_notes} onChange={(e) => set("follow_up_notes", e.target.value)} />
+
+
+
+      <Card>
+
+        <CardHeader className="pb-3">
+
+          <CardTitle className="text-base">Session details</CardTitle>
+
+          {!initial && (
+
+            <p className="text-sm text-slate-500">
+
+              Treatment info — search and add products below (optional).
+
+            </p>
+
+          )}
+
+        </CardHeader>
+
+        <CardContent>
+
+          <DynamicFormFields
+
+            entityType="treatment_session"
+
+            definitions={fields}
+
+            values={values}
+
+            customFields={customFields}
+
+            onValuesChange={setValues}
+
+            onCustomFieldsChange={setCustomFields}
+
+            hideKeys={hideKeys}
+
+            allowAdHoc={!initial}
+
+          />
+
+          {attachProducts && (
+
+            <OptionalTreatmentProducts
+
+              lines={productLines}
+
+              onChange={setProductLines}
+
+              onSubtotalChange={setProductSubtotal}
+
+              embedded
+
+            />
+
+          )}
+
+        </CardContent>
+
+      </Card>
+
+
+
+      {attachCheckout && (
+
+        <SessionCheckoutSection
+
+          treatmentFee={payment.treatment_fee}
+
+          onTreatmentFeeChange={(v) => setPay("treatment_fee", v)}
+
+          productSubtotal={productSubtotal}
+
+          paymentMethod={payment.payment_method}
+
+          onPaymentMethodChange={(v) => setPay("payment_method", v)}
+
+          paymentStatus={payment.payment_status}
+
+          onPaymentStatusChange={(v) => setPay("payment_status", v)}
+
+          recordPayment={payment.record_payment}
+
+          onRecordPaymentChange={(v) => setPay("record_payment", v)}
+
+        />
+
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input type="number" placeholder="Price" value={form.total_price} onChange={(e) => set("total_price", e.target.value)} />
-        <Input type="date" value={form.session_date} onChange={(e) => set("session_date", e.target.value)} />
-      </div>
-      {initial && (
-        <select className={selectClass} value={form.status} onChange={(e) => set("status", e.target.value)}>
-          {["scheduled", "in_progress", "completed", "cancelled"].map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      )}
-      <Button type="submit" disabled={loading || (showPatientPicker && !patient)} className="w-full">
+
+
+
+      <Button
+
+        type="submit"
+
+        disabled={loading || !fields?.length || (showPatientPicker && !patient && !defaultPatientUuid)}
+
+        className="w-full"
+
+      >
+
         {loading ? "Saving..." : initial ? "Update session" : "Create session"}
+
       </Button>
+
     </form>
+
   );
+
 }
+
+

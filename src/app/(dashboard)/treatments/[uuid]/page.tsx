@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
@@ -12,8 +12,15 @@ import type { TreatmentSession, TreatmentImage } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 import { CrudActions } from "@/components/shared/crud-actions";
+import { ExportPrintMenu, treatmentExportItems } from "@/components/shared/export-print-menu";
 import { TreatmentForm } from "@/components/features/treatments/treatment-form";
+import { TreatmentProductSales } from "@/components/features/treatments/treatment-product-sales";
+import { PaymentForm } from "@/components/features/payments/payment-form";
+import { formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { useMutation } from "@tanstack/react-query";
 
 const BeforeAfterViewer = dynamic(
   () => import("@/components/features/images/before-after-viewer").then((m) => m.BeforeAfterViewer),
@@ -34,6 +41,7 @@ export default function TreatmentDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const { data: session, refetch } = useQuery({
     queryKey: ["treatment", uuid],
@@ -80,16 +88,46 @@ export default function TreatmentDetailPage() {
   const images = session?.images ?? [];
   const before = images.find((i) => i.type === "before");
   const after = images.find((i) => i.type === "after");
+  const patientUuid = session?.patient?.uuid;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">{session?.treatment_name ?? "Treatment"}</h1>
-          <p className="text-slate-500">{session?.diagnosis}</p>
+          <p className="text-slate-500 dark:text-slate-400">{session?.diagnosis}</p>
+          {session?.accounting && (
+            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+              <Badge variant="muted">
+                Charged: {formatCurrency(session.accounting.total_amount)}
+              </Badge>
+              <Badge variant="success">Paid: {formatCurrency(session.accounting.paid_amount)}</Badge>
+              <Badge variant={session.accounting.balance > 0 ? "warning" : "success"}>
+                {session.accounting.balance > 0
+                  ? `Owed: ${formatCurrency(session.accounting.balance)}`
+                  : "Paid in full"}
+              </Badge>
+            </div>
+          )}
         </div>
-        <CrudActions onEdit={() => setEditOpen(true)} onDelete={deleteSession} deleteLabel="Delete session" />
+        <div className="flex flex-wrap gap-2">
+          <ExportPrintMenu items={treatmentExportItems(uuid)} label="Export / Print" />
+          {patientUuid && (
+            <Button variant="secondary" size="sm" onClick={() => setPaymentOpen(true)}>
+              Record payment
+            </Button>
+          )}
+          <CrudActions onEdit={() => setEditOpen(true)} onDelete={deleteSession} deleteLabel="Delete session" />
+        </div>
       </div>
+
+      {session && (
+        <TreatmentProductSales
+          sessionUuid={uuid}
+          sales={session.product_sales}
+          onChanged={() => refetch()}
+        />
+      )}
 
       <Card>
         <CardHeader><CardTitle>Before / after</CardTitle></CardHeader>
@@ -133,6 +171,29 @@ export default function TreatmentDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Record payment for this treatment">
+        {patientUuid && (
+          <PaymentForm
+            patientUuid={patientUuid}
+            defaultTreatmentSessionUuid={uuid}
+            suggestedAmount={session?.accounting?.balance}
+            onSubmit={async (v) => {
+              const { treatment_session_uuid, ...rest } = v;
+              await api.post("/payments", {
+                patient_uuid: patientUuid,
+                treatment_session_uuid: treatment_session_uuid || uuid,
+                ...rest,
+              });
+              toast.success("Payment recorded");
+              setPaymentOpen(false);
+              refetch();
+              queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
+              queryClient.invalidateQueries({ queryKey: ["payments"] });
+            }}
+          />
+        )}
+      </Modal>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit session">
         {session && (

@@ -20,7 +20,9 @@ import {
   PatientEditModal,
   deletePatient,
 } from "@/components/features/patients/patient-crud-modals";
+import { PatientHistoryButton } from "@/components/features/patients/patient-history-panel";
 import { formatDate } from "@/lib/utils";
+import { ExportPrintMenu } from "@/components/shared/export-print-menu";
 
 export default function PatientsPage() {
   const { canFetch } = useAuth();
@@ -51,6 +53,13 @@ export default function PatientsPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Create, edit, or delete patients</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <ExportPrintMenu
+            items={[
+              { type: "report", report: "patients", format: "pdf", label: "PDF (A4)", params: { search: debouncedSearch } },
+              { type: "report", report: "patients", format: "csv", label: "Excel (CSV)", params: { search: debouncedSearch } },
+            ]}
+            label="Export list"
+          />
           <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" /> Add patient
           </Button>
@@ -101,6 +110,11 @@ export default function PatientsPage() {
                       <Link href={`/patients/${patient.uuid}`} className="flex-1 sm:flex-none">
                         <Button variant="secondary" size="sm" className="w-full">View</Button>
                       </Link>
+                      <PatientHistoryButton
+                        uuid={patient.uuid}
+                        patientName={patient.full_name}
+                        className="flex-1 sm:flex-none"
+                      />
                       <CrudActions
                         onEdit={() => setEditing(patient)}
                         onDelete={() => deletePatient(patient, queryClient)}
@@ -149,6 +163,7 @@ export default function PatientsPage() {
                             <Link href={`/patients/${patient.uuid}`}>
                               <Button variant="secondary" size="sm">View</Button>
                             </Link>
+                            <PatientHistoryButton uuid={patient.uuid} patientName={patient.full_name} />
                             <CrudActions
                               onEdit={() => setEditing(patient)}
                               onDelete={() => deletePatient(patient, queryClient)}

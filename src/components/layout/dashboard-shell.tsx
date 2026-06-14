@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
+import { ModulePageGuardInner } from "@/components/layout/module-page-guard";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { normalizeDashboard } from "@/lib/api-data";
@@ -17,6 +19,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const queryClient = useQueryClient();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!canFetch) return;
@@ -58,7 +61,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <Navbar onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
-        <main className="p-3 sm:p-4 md:p-6">{children}</main>
+        <main className="p-3 sm:p-4 md:p-6">
+          <ModulePageGuardInner pathname={pathname}>{children}</ModulePageGuardInner>
+        </main>
       </div>
     </div>
   );

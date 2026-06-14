@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TreatmentForm } from "@/components/features/treatments/treatment-form";
 import { useState } from "react";
@@ -17,36 +17,37 @@ function NewTreatmentForm() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <h1 className="text-2xl font-bold">New treatment session</h1>
-      <Card>
-        <CardHeader><CardTitle>Session details</CardTitle></CardHeader>
-        <CardContent>
-          <TreatmentForm
-            showPatientPicker={!prefillPatient}
-            defaultPatientUuid={prefillPatient ?? undefined}
-            loading={loading}
-            onSubmit={async (values) => {
-              setLoading(true);
-              try {
-                const res = await api.post("/treatment-sessions", {
-                  patient_uuid: prefillPatient ?? values.patient_uuid,
-                  treatment_name: values.treatment_name,
-                  diagnosis: values.diagnosis || null,
-                  session_notes: values.session_notes || null,
-                  total_price: values.total_price,
-                  session_date: values.session_date,
-                });
-                toast.success("Session created");
-                router.push(`/treatments/${res.data.data.uuid}`);
-              } catch {
-                toast.error("Failed to create session");
-              } finally {
-                setLoading(false);
-              }
-            }}
-          />
-        </CardContent>
-      </Card>
+      <div>
+        <h1 className="text-2xl font-bold">New treatment session</h1>
+        <p className="text-sm text-slate-500">
+          Fill session details. Search products below session fields to add them instantly.
+        </p>
+      </div>
+      <TreatmentForm
+        showPatientPicker={!prefillPatient}
+        defaultPatientUuid={prefillPatient ?? undefined}
+        showProducts
+        showCheckout
+        loading={loading}
+        onSubmit={async (values) => {
+          setLoading(true);
+          try {
+            const res = await api.post("/treatment-sessions", {
+              ...values,
+              patient_uuid: prefillPatient ?? values.patient_uuid,
+            });
+            const count = (values.product_sales as unknown[])?.length ?? 0;
+            toast.success(
+              count > 0 ? `Session created with ${count} product(s)` : "Session created"
+            );
+            router.push(`/treatments/${res.data.data.uuid}`);
+          } catch (err) {
+            toast.error(getApiErrorMessage(err, "Failed to create session"));
+          } finally {
+            setLoading(false);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Calendar, Phone, Plus, Pencil } from "lucide-react";
+import { PatientHistoryButton, PatientHistoryPanel } from "@/components/features/patients/patient-history-panel";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import type { Patient, TreatmentImage } from "@/types";
@@ -25,6 +26,7 @@ import {
   ProductsTab,
   SessionListCrud,
 } from "@/components/features/patients/patient-profile-crud";
+import { ExportPrintMenu, patientExportItems } from "@/components/shared/export-print-menu";
 
 const BeforeAfterViewer = dynamic(
   () => import("@/components/features/images/before-after-viewer").then((m) => m.BeforeAfterViewer),
@@ -134,6 +136,8 @@ function PatientProfileContent() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <ExportPrintMenu items={patientExportItems(uuid)} label="Export / Print" />
+            <PatientHistoryButton uuid={uuid} patientName={display.full_name} />
             <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
               <Pencil className="h-4 w-4" /> Edit
             </Button>
@@ -148,7 +152,7 @@ function PatientProfileContent() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="timeline">History</TabsTrigger>
           <TabsTrigger value="treatments">Treatments</TabsTrigger>
           <TabsTrigger value="images">Before/After</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
@@ -172,7 +176,7 @@ function PatientProfileContent() {
         </TabsContent>
 
         <TabsContent value="timeline">
-          <PatientTimeline uuid={uuid} />
+          <PatientHistoryPanel uuid={uuid} patientName={display.full_name} enabled={tab === "timeline"} />
         </TabsContent>
 
         <TabsContent value="treatments">
@@ -225,32 +229,5 @@ export default function PatientProfilePage() {
     <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
       <PatientProfileContent />
     </Suspense>
-  );
-}
-
-function PatientTimeline({ uuid }: { uuid: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["timeline", uuid],
-    queryFn: async () => {
-      const res = await api.get(`/patients/${uuid}/timeline`);
-      return res.data.data as { type: string; date: string }[];
-    },
-    enabled: !!uuid,
-    staleTime: 60_000,
-  });
-
-  if (isLoading) return <Skeleton className="h-48 w-full" />;
-
-  return (
-    <div className="relative space-y-4 pl-6 before:absolute before:left-2 before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-violet-200">
-      {data?.map((item, i) => (
-        <div key={i} className="relative rounded-2xl border p-4">
-          <span className="absolute -left-[22px] top-4 h-3 w-3 rounded-full bg-violet-500" />
-          <Badge variant="muted">{item.type}</Badge>
-          <p className="mt-1 text-sm text-slate-500">{formatDate(item.date)}</p>
-        </div>
-      ))}
-      {!data?.length && <p className="text-slate-500">No timeline events yet.</p>}
-    </div>
   );
 }

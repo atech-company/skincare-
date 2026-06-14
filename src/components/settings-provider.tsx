@@ -4,7 +4,13 @@ import { useEffect } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/api";
 import { touchActivity } from "@/lib/auth-token";
+import { normalizeModuleConfig } from "@/lib/modules";
 import { useSettingsStore, type AppSettings } from "@/stores/settings-store";
+
+type PublicSettingsResponse = AppSettings & {
+  modules?: AppSettings["modules"];
+  platform?: AppSettings["platform"];
+};
 
 /** Loads public app settings and tracks user activity for idle logout. */
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
@@ -12,10 +18,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     axios
-      .get<{ data: AppSettings }>(`${getApiBaseUrl()}/api/v1/settings/public`, {
+      .get<{ data: PublicSettingsResponse }>(`${getApiBaseUrl()}/api/v1/settings/public`, {
         withCredentials: false,
       })
-      .then((res) => setSettings(res.data.data))
+      .then((res) => {
+        const data = res.data.data;
+        setSettings({
+          app_name: data.app_name,
+          app_tagline: data.app_tagline,
+          session_idle_minutes: data.session_idle_minutes,
+          modules: normalizeModuleConfig(data.modules),
+          platform: data.platform,
+        });
+      })
       .catch(() => setSettings(useSettingsStore.getState().settings));
 
     const onActivity = () => touchActivity();

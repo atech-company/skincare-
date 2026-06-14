@@ -3,34 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import {
-  Calendar,
-  ChevronLeft,
-  FileText,
-  LayoutDashboard,
-  Package,
-  Settings,
-  Sparkles,
-  Stethoscope,
-  Timeline,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { ChevronLeft, Lock, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
 import { useSettingsStore } from "@/stores/settings-store";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/patients", label: "Patients", icon: Users },
-  { href: "/patients/new", label: "Intake Form", icon: UserPlus },
-  { href: "/treatments", label: "Treatments", icon: Stethoscope },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/timeline", label: "Timeline", icon: Timeline },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/appointments", label: "Appointments", icon: Calendar },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+import {
+  isModuleLockedForUser,
+  isModuleVisible,
+  NAV_MODULES,
+} from "@/lib/modules";
 
 export function Sidebar({
   mobileOpen = false,
@@ -41,7 +22,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
-  const { settings } = useSettingsStore();
+  const { settings, modules } = useSettingsStore();
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -51,6 +32,8 @@ export function Sidebar({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen, onCloseMobile]);
+
+  const items = NAV_MODULES.filter((item) => isModuleVisible(item.module, modules));
 
   return (
     <>
@@ -83,12 +66,14 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active =
-              item.href === "/patients"
+              item.exact && item.href === "/patients"
                 ? pathname === "/patients"
                 : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
+            const locked = isModuleLockedForUser(item.module, modules);
+
             return (
               <Link key={item.href} href={item.href} prefetch onClick={onCloseMobile}>
                 <span
@@ -96,11 +81,17 @@ export function Sidebar({
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                     active
                       ? "bg-gradient-to-r from-violet-600/10 to-indigo-600/10 text-violet-700 dark:text-violet-300"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800",
+                    locked && !active && "opacity-90"
                   )}
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", active && "text-violet-600")} />
-                  {!sidebarCollapsed && item.label}
+                  {!sidebarCollapsed && (
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      <span>{item.label}</span>
+                      {locked && <Lock className="h-3.5 w-3.5 text-amber-600" />}
+                    </span>
+                  )}
                 </span>
               </Link>
             );

@@ -1,29 +1,13 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { labelClass, optionClass, selectClass, textareaClass } from "@/lib/form-styles";
-import { cn } from "@/lib/utils";
+import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
+import { useFormFields } from "@/hooks/use-form-fields";
+import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
 import type { Patient } from "@/types";
 
-const schema = z.object({
-  full_name: z.string().min(2),
-  phone: z.string().min(5),
-  gender: z.enum(["male", "female", "other"]),
-  dob: z.string().optional(),
-  address: z.string().optional(),
-  skin_type: z.enum(["normal", "dry", "oily", "combination", "sensitive"]).optional(),
-  allergies: z.string().optional(),
-  medical_history: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export type PatientFormData = z.infer<typeof schema>;
-
-const SKIN_TYPES = ["normal", "dry", "oily", "combination", "sensitive"] as const;
+export type PatientFormData = Record<string, unknown>;
 
 export function PatientForm({
   defaultValues,
@@ -34,73 +18,38 @@ export function PatientForm({
   onSubmit: (data: PatientFormData) => Promise<void>;
   loading?: boolean;
 }) {
-  const { register, handleSubmit, formState: { errors } } = useForm<PatientFormData>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      full_name: defaultValues?.full_name ?? "",
-      phone: defaultValues?.phone ?? "",
-      gender: (defaultValues?.gender as PatientFormData["gender"]) ?? "other",
-      dob: defaultValues?.dob ?? "",
-      address: defaultValues?.address ?? "",
-      skin_type: defaultValues?.skin_type as PatientFormData["skin_type"],
-      allergies: defaultValues?.allergies ?? "",
-      medical_history: defaultValues?.medical_history ?? "",
-      notes: defaultValues?.notes ?? "",
-    },
-  });
+  const { data: fields } = useFormFields("patient");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!fields?.length) return;
+    const state = initFormState(fields, defaultValues as Record<string, unknown> | undefined);
+    setValues(state.values);
+    setCustomFields(state.customFields);
+  }, [fields, defaultValues]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!fields?.length) return;
+        await onSubmit(buildFormPayload(fields, values, customFields));
+      }}
+      className="grid gap-4 sm:grid-cols-2"
+    >
       <div className="sm:col-span-2">
-        <label className={labelClass}>Full Name</label>
-        <Input {...register("full_name")} />
-        {errors.full_name && <p className="text-xs text-red-500">{errors.full_name.message}</p>}
-      </div>
-      <div>
-        <label className={labelClass}>Phone</label>
-        <Input {...register("phone")} />
-      </div>
-      <div>
-        <label className={labelClass}>Gender</label>
-        <select {...register("gender")} className={selectClass}>
-          <option value="female" className={optionClass}>Female</option>
-          <option value="male" className={optionClass}>Male</option>
-          <option value="other" className={optionClass}>Other</option>
-        </select>
-      </div>
-      <div>
-        <label className={labelClass}>Date of Birth</label>
-        <Input type="date" {...register("dob")} />
-      </div>
-      <div>
-        <label className={labelClass}>Skin Type</label>
-        <select {...register("skin_type")} className={selectClass}>
-          <option value="" className={optionClass}>—</option>
-          {SKIN_TYPES.map((s) => (
-            <option key={s} value={s} className={optionClass}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
+        <DynamicFormFields
+          entityType="patient"
+          values={values}
+          customFields={customFields}
+          onValuesChange={setValues}
+          onCustomFieldsChange={setCustomFields}
+          className="grid gap-4 sm:grid-cols-2 [&>div]:sm:col-span-1 [&>div:nth-child(-n+2)]:sm:col-span-1 [&>div:first-child]:sm:col-span-2"
+        />
       </div>
       <div className="sm:col-span-2">
-        <label className={labelClass}>Address</label>
-        <Input {...register("address")} />
-      </div>
-      <div className="sm:col-span-2">
-        <label className={labelClass}>Allergies</label>
-        <Input {...register("allergies")} />
-      </div>
-      <div className="sm:col-span-2">
-        <label className={labelClass}>Medical History</label>
-        <textarea {...register("medical_history")} className={cn(textareaClass, "min-h-[80px]")} />
-      </div>
-      <div className="sm:col-span-2">
-        <label className={labelClass}>Notes</label>
-        <textarea {...register("notes")} className={cn(textareaClass, "min-h-[60px]")} />
-      </div>
-      <div className="sm:col-span-2">
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || !fields?.length}>
           {loading ? "Saving..." : defaultValues?.full_name ? "Save changes" : "Create patient"}
         </Button>
       </div>

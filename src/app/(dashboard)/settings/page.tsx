@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UsersManagement } from "@/components/features/settings/users-management";
+import { FormFieldsManager } from "@/components/features/settings/form-fields-manager";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { isAdminUser, normalizeRoles } from "@/lib/auth-roles";
 
@@ -69,11 +70,23 @@ export default function SettingsPage() {
     };
   }, [user, setUser]);
 
+  const [alertEmail, setAlertEmail] = useState("");
+
   useEffect(() => {
     setAppName(settings.app_name);
     setAppTagline(settings.app_tagline);
     setIdleMinutes(String(settings.session_idle_minutes));
   }, [settings]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api
+      .get<{ data: { low_stock_alert_email?: string } }>("/settings/admin")
+      .then((res) => {
+        setAlertEmail(res.data.data.low_stock_alert_email ?? "");
+      })
+      .catch(() => {});
+  }, [isAdmin]);
 
   const profileMutation = useMutation({
     mutationFn: async () => {
@@ -133,6 +146,7 @@ export default function SettingsPage() {
         app_name: appName,
         app_tagline: appTagline,
         session_idle_minutes: parseInt(idleMinutes, 10) || 10,
+        low_stock_alert_email: alertEmail || null,
       });
       return res.data.data;
     },
@@ -210,12 +224,12 @@ export default function SettingsPage() {
             <label className="mb-1 block text-sm font-medium">Phone</label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          <p className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium">Roles:</span>
             {roles.map((r) => (
               <Badge key={r}>{r}</Badge>
             ))}
-          </p>
+          </div>
           <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
             {profileMutation.isPending ? "Saving…" : "Save profile"}
           </Button>
@@ -295,10 +309,37 @@ export default function SettingsPage() {
               Closing the tab does not log you out until this idle time passes. Default: 10 minutes.
             </p>
           </div>
+          {isAdmin && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Low-stock alert email (optional)</label>
+              <Input
+                type="email"
+                placeholder="extra@clinic.com — admins also receive alerts"
+                value={alertEmail}
+                onChange={(e) => setAlertEmail(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Email sent when inventory runs low. In-app alerts always go to admin users.
+              </p>
+            </div>
+          )}
           {isAdmin ? (
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => settingsMutation.mutate()} disabled={settingsMutation.isPending}>
                 {settingsMutation.isPending ? "Saving…" : "Save system settings"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    const res = await api.post("/settings/scan-low-stock");
+                    toast.success(res.data.message ?? "Scan complete");
+                  } catch {
+                    toast.error("Scan failed");
+                  }
+                }}
+              >
+                Scan low stock now
               </Button>
               <Button
                 variant="destructive"
@@ -313,6 +354,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <FormFieldsManager isAdmin={isAdmin} />
 
       <UsersManagement currentUserUuid={user.uuid} isAdmin={isAdmin} rolesLabel={roles.join(", ") || "none"} />
     </div>

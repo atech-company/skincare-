@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { api, getApiBaseUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { normalizeRoles } from "@/lib/auth-roles";
+import { isSuperAdminUser, normalizeRoles } from "@/lib/auth-roles";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { touchActivity } from "@/lib/auth-token";
 import type { User } from "@/types";
@@ -61,7 +61,13 @@ export default function LoginPage() {
       });
       setInitialized(true);
       toast.success("Welcome back!");
-      router.push("/dashboard");
+      const roles = normalizeRoles(res.data.user.roles);
+      if (isSuperAdminUser(roles)) {
+        router.push("/platform");
+        return;
+      }
+      const siteOn = useSettingsStore.getState().platform.site_enabled;
+      router.push(siteOn ? "/dashboard" : "/maintenance");
     } catch (err: unknown) {
       const ax = err as { response?: { status?: number } };
       const msg =

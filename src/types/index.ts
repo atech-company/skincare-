@@ -21,6 +21,7 @@ export interface Patient {
   allergies?: string;
   medical_history?: string;
   notes?: string;
+  custom_fields?: Record<string, string>;
   avatar_url?: string;
   created_at?: string;
   last_visit?: string;
@@ -31,10 +32,30 @@ export interface Patient {
   appointments?: Appointment[];
 }
 
+export interface SessionAccounting {
+  treatment_amount: number;
+  product_sales_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  balance: number;
+  status: "paid" | "partial" | "unpaid";
+}
+
+export interface TreatmentProductSale {
+  id: number;
+  uuid: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  created_at?: string;
+  product?: Product;
+}
+
 export interface TreatmentSession {
   id: number;
   uuid: string;
   patient_id: number;
+  patient?: Pick<Patient, "uuid" | "full_name" | "phone">;
   treatment_name: string;
   diagnosis?: string;
   session_notes?: string;
@@ -42,10 +63,13 @@ export interface TreatmentSession {
   total_price: number;
   session_date: string;
   status: string;
+  custom_fields?: Record<string, string>;
   doctor?: User;
   images?: TreatmentImage[];
   payments?: Payment[];
   prescribed_products?: PatientProduct[];
+  product_sales?: TreatmentProductSale[];
+  accounting?: SessionAccounting;
 }
 
 export interface TreatmentImage {
@@ -69,9 +93,13 @@ export interface Product {
   description?: string;
   usage_instructions?: string;
   price: number;
+  purchase_price?: number;
   stock_quantity: number;
+  low_stock_threshold?: number;
+  is_low_stock?: boolean;
   image_url?: string;
   is_active: boolean;
+  custom_fields?: Record<string, string>;
 }
 
 export interface PatientProduct {
@@ -95,6 +123,7 @@ export interface Document {
   created_at?: string;
   patient_uuid?: string;
   patient_name?: string;
+  custom_fields?: Record<string, string>;
 }
 
 export interface Payment {
@@ -105,8 +134,22 @@ export interface Payment {
   status: string;
   reference?: string;
   notes?: string;
+  custom_fields?: Record<string, string>;
   paid_at?: string;
   treatment_session_id?: number;
+  treatment_session_uuid?: string;
+  patient_uuid?: string;
+  patient_name?: string;
+  treatment_name?: string;
+}
+
+export interface PatientBalance {
+  patient_uuid: string;
+  patient_name: string;
+  total_amount: number;
+  paid_amount: number;
+  balance: number;
+  status: "paid" | "partial" | "unpaid";
 }
 
 export interface Appointment {
@@ -116,6 +159,7 @@ export interface Appointment {
   appointment_time: string;
   status: string;
   notes?: string;
+  custom_fields?: Record<string, string>;
   patient?: Patient;
 }
 
@@ -131,8 +175,25 @@ export interface DashboardStats {
   today_sessions: number;
   revenue_this_month: number;
   pending_payments: number;
+  total_outstanding?: number;
+  upcoming_appointments_count?: number;
+  upcoming_appointments?: Appointment[];
+  low_stock_count?: number;
+  low_stock_products?: {
+    uuid: string;
+    product_name: string;
+    brand?: string;
+    stock_quantity: number;
+    low_stock_threshold: number;
+  }[];
+  product_sales_revenue_month?: number;
   recent_uploads: TreatmentImage[];
-  top_products: { product_name: string; brand?: string; usage_count: number }[];
+  top_products: {
+    product_name: string;
+    brand?: string;
+    usage_count: number;
+    sales_revenue?: number;
+  }[];
   recent_activities: {
     id: number;
     action: string;

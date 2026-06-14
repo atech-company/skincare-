@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, Menu, Moon, Search, Sun, User, X } from "lucide-react";
+import { LogOut, Menu, Moon, Search, Sun, User, X } from "lucide-react";
+import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
@@ -63,9 +64,7 @@ export function Navbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) 
           {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
 
-        <Button variant="ghost" size="icon" aria-label="Notifications">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificationsPanel />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
