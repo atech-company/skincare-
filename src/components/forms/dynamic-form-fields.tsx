@@ -46,6 +46,7 @@ function FieldInput({
     case "select": {
       const options = def.options ?? [];
       const inList = options.some((o) => o.value === value);
+      const dropdownOnly = def.field_key === "skin_type" || def.field_key === "gender";
       return (
         <div className="space-y-2">
           <select
@@ -65,11 +66,13 @@ function FieldInput({
               </option>
             ))}
           </select>
-          <Input
-            placeholder="Or type your own value"
-            value={inList ? "" : value}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          {!dropdownOnly && (
+            <Input
+              placeholder="Or type your own value"
+              value={inList ? "" : value}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          )}
         </div>
       );
     }
