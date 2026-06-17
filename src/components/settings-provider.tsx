@@ -17,34 +17,43 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setSettings = useSettingsStore((s) => s.setSettings);
 
   useEffect(() => {
-    axios
-      .get<{ data: PublicSettingsResponse }>(`${getApiBaseUrl()}/api/v1/settings/public`, {
-        withCredentials: false,
-      })
-      .then((res) => {
-        const data = res.data.data;
-        setSettings({
-          app_name: data.app_name,
-          app_tagline: data.app_tagline,
-          session_idle_minutes: data.session_idle_minutes,
-          modules: normalizeModuleConfig(data.modules),
-          platform: data.platform,
+    const load = () => {
+      axios
+        .get<{ data: PublicSettingsResponse }>(`${getApiBaseUrl()}/api/v1/settings/public`, {
+          withCredentials: false,
+        })
+        .then((res) => {
+          const data = res.data.data;
+          setSettings({
+            app_name: data.app_name,
+            app_tagline: data.app_tagline,
+            session_idle_minutes: data.session_idle_minutes,
+            modules: normalizeModuleConfig(data.modules),
+            platform: data.platform,
+          });
+        })
+        .catch(() => {
+          /* keep last known settings */
         });
-      })
-      .catch(() => setSettings(useSettingsStore.getState().settings));
+    };
+
+    load();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const interval = window.setInterval(load, 60_000);
 
     const onActivity = () => touchActivity();
     const events = ["mousedown", "keydown", "scroll", "touchstart"] as const;
     events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
 
-    const onVisible = () => {
-      if (document.visibilityState === "visible") touchActivity();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
     return () => {
       events.forEach((e) => window.removeEventListener(e, onActivity));
       document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(interval);
     };
   }, [setSettings]);
 

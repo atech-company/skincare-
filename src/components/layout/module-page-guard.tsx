@@ -6,6 +6,8 @@ import {
   MODULE_LABELS,
   pathToModule,
 } from "@/lib/modules";
+import { normalizeRoles } from "@/lib/auth-roles";
+import { useAuth } from "@/hooks/use-auth";
 import { useSettingsStore } from "@/stores/settings-store";
 import { ModuleDisabledNotice, ModuleLockedOverlay } from "@/components/layout/module-locked-overlay";
 
@@ -24,6 +26,8 @@ export function ModulePageGuardInner({
 }) {
   const moduleKey = pathToModule(pathname);
   const modules = useSettingsStore((s) => s.modules);
+  const { user } = useAuth();
+  const roles = normalizeRoles(user?.roles);
 
   if (!moduleKey) {
     return <>{children}</>;
@@ -33,7 +37,7 @@ export function ModulePageGuardInner({
     return <ModuleDisabledNotice moduleLabel={MODULE_LABELS[moduleKey]} />;
   }
 
-  if (isModuleLockedForUser(moduleKey, modules)) {
+  if (isModuleLockedForUser(moduleKey, modules, roles)) {
     return (
       <ModuleLockedOverlay title={`${MODULE_LABELS[moduleKey]} — locked`}>
         {children}

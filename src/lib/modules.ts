@@ -94,9 +94,10 @@ export function normalizeModuleConfig(raw?: Partial<ModuleConfig> | null): Modul
   }
   enabled.dashboard = true;
 
-  const locked = (raw?.locked_for_non_admin ?? DEFAULT_MODULE_CONFIG.locked_for_non_admin).filter(
-    (k): k is ModuleKey => k in enabled
-  );
+  const locked =
+    raw && "locked_for_non_admin" in raw
+      ? (raw.locked_for_non_admin ?? []).filter((k): k is ModuleKey => k in enabled)
+      : DEFAULT_MODULE_CONFIG.locked_for_non_admin.filter((k): k is ModuleKey => k in enabled);
 
   return {
     enabled,
@@ -120,7 +121,14 @@ export function pathToModule(pathname: string): ModuleKey | null {
   return null;
 }
 
-export function isModuleLockedForUser(module: ModuleKey, config: ModuleConfig): boolean {
+export function isModuleLockedForUser(
+  module: ModuleKey,
+  config: ModuleConfig,
+  roles: string[] = [],
+): boolean {
+  if (roles.includes("admin") || roles.includes("super_admin")) {
+    return false;
+  }
   return config.locked_for_non_admin.includes(module);
 }
 
@@ -128,8 +136,12 @@ export function isModuleVisible(module: ModuleKey, config: ModuleConfig): boolea
   return config.enabled[module];
 }
 
-export function canUseModule(module: ModuleKey, config: ModuleConfig): boolean {
+export function canUseModule(
+  module: ModuleKey,
+  config: ModuleConfig,
+  roles: string[] = [],
+): boolean {
   if (!isModuleVisible(module, config)) return false;
-  if (isModuleLockedForUser(module, config)) return false;
+  if (isModuleLockedForUser(module, config, roles)) return false;
   return true;
 }

@@ -57,8 +57,8 @@ export function ModulesManager({
       <CardHeader>
         <CardTitle>Modules</CardTitle>
         <CardDescription className={isPlatform ? "text-slate-400" : undefined}>
-          Enable or disable clinic modules for this site. Locked modules stay visible but show a
-          dark overlay for everyone in the clinic, including admins (e.g. Payments).
+          Enable or disable clinic modules. &quot;Lock for staff&quot; blocks non-admin users until
+          you unlock it here (admins always have access).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -79,7 +79,7 @@ export function ModulesManager({
                 <p className="font-medium">{MODULE_LABELS[key]}</p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   <Badge variant={on ? "success" : "muted"}>{on ? "Enabled" : "Disabled"}</Badge>
-                  {on && locked && <Badge variant="warning">Locked for clinic</Badge>}
+                  {on && locked && <Badge variant="warning">Locked for staff</Badge>}
                 </div>
               </div>
               <div className="flex flex-wrap gap-4 text-sm">
@@ -100,7 +100,7 @@ export function ModulesManager({
                     onChange={() => toggleLock(key)}
                     className={cn("rounded", isPlatform ? "border-slate-600 bg-slate-900" : "border-slate-300")}
                   />
-                  Lock for clinic (incl. admin)
+                  Lock for staff
                 </label>
               </div>
             </div>

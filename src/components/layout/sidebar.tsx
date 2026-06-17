@@ -12,6 +12,8 @@ import {
   isModuleVisible,
   NAV_MODULES,
 } from "@/lib/modules";
+import { normalizeRoles } from "@/lib/auth-roles";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Sidebar({
   mobileOpen = false,
@@ -23,6 +25,8 @@ export function Sidebar({
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const { settings, modules } = useSettingsStore();
+  const { user } = useAuth();
+  const roles = normalizeRoles(user?.roles);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -72,7 +76,7 @@ export function Sidebar({
                 ? pathname === "/patients"
                 : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
-            const locked = isModuleLockedForUser(item.module, modules);
+            const locked = isModuleLockedForUser(item.module, modules, roles);
 
             return (
               <Link key={item.href} href={item.href} prefetch onClick={onCloseMobile}>

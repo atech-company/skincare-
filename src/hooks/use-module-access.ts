@@ -19,7 +19,7 @@ export function useModuleAccess(module: ModuleKey) {
     roles,
     enabled: modules.enabled[module],
     visible: isModuleVisible(module, modules),
-    locked: isModuleLockedForUser(module, modules),
-    canInteract: canUseModule(module, modules),
+    locked: isModuleLockedForUser(module, modules, roles),
+    canInteract: canUseModule(module, modules, roles),
   };
 }
