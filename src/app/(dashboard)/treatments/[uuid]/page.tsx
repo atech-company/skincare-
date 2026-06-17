@@ -190,6 +190,7 @@ export default function TreatmentDetailPage() {
               refetch();
               queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
               queryClient.invalidateQueries({ queryKey: ["payments"] });
+              queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             }}
           />
         )}

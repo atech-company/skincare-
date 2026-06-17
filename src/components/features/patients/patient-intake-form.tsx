@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -44,6 +44,7 @@ export function PatientIntakeForm({
 }) {
   const { canFetch } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<IntakeMode>(initialMode);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(false);
@@ -204,6 +205,7 @@ export function PatientIntakeForm({
           ? `${res.data.message ?? "Saved"} — ${productCount} product(s) attached`
           : res.data.message ?? "Saved successfully"
       );
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       router.push(`/patients/${res.data.data.patient.uuid}`);
     } catch (err: unknown) {
       toast.error(extractApiError(err, "Failed to save"));

@@ -761,6 +761,7 @@ function HistoryBody({
     queryClient.invalidateQueries({ queryKey: ["patient-balance", uuid] });
     queryClient.invalidateQueries({ queryKey: ["payments"] });
     queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
   const savePayment = async (values: Record<string, unknown> & { treatment_session_uuid?: string }) => {

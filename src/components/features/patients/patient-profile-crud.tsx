@@ -93,6 +93,7 @@ export function PaymentsTab({ uuid, payments }: { uuid: string; payments?: Payme
     queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
     queryClient.invalidateQueries({ queryKey: ["patient-balance", uuid] });
     queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     setOpen(false);
     setEditing(null);
   };
