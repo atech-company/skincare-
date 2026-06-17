@@ -29,6 +29,7 @@ export function ProductQuickCreateModal({
     purchase_price: "",
     price: "",
     stock_quantity: "0",
+    low_stock_threshold: "5",
     sale_quantity: "1",
   });
 
@@ -42,6 +43,7 @@ export function ProductQuickCreateModal({
       purchase_price: "",
       price: "",
       stock_quantity: "0",
+      low_stock_threshold: "5",
       sale_quantity: "1",
     });
   };
@@ -51,6 +53,7 @@ export function ProductQuickCreateModal({
     const price = Number(form.price);
     const purchasePrice = form.purchase_price === "" ? 0 : Number(form.purchase_price);
     const stock = Math.max(0, parseInt(form.stock_quantity, 10) || 0);
+    const lowStock = Math.max(0, parseInt(form.low_stock_threshold, 10) || 0);
     const saleQty = Math.max(1, parseInt(form.sale_quantity, 10) || 1);
 
     if (!name) {
@@ -75,7 +78,7 @@ export function ProductQuickCreateModal({
         price,
         purchase_price: purchasePrice,
         stock_quantity: stock,
-        low_stock_threshold: 5,
+        low_stock_threshold: lowStock,
       });
       const product = res.data.data;
       await queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -170,15 +173,25 @@ export function ProductQuickCreateModal({
             <p className="mt-1 text-xs text-slate-500">Inventory on hand in catalog</p>
           </div>
           <div>
-            <label className={labelClass}>Qty for this visit *</label>
+            <label className={labelClass}>Low-stock alert at</label>
             <Input
               type="number"
-              min="1"
-              value={form.sale_quantity}
-              onChange={(e) => set("sale_quantity", e.target.value)}
+              min="0"
+              value={form.low_stock_threshold}
+              onChange={(e) => set("low_stock_threshold", e.target.value)}
             />
-            <p className="mt-1 text-xs text-slate-500">Units sold on this treatment</p>
+            <p className="mt-1 text-xs text-slate-500">Notify when stock falls to this level or below</p>
           </div>
+        </div>
+        <div>
+          <label className={labelClass}>Qty for this visit *</label>
+          <Input
+            type="number"
+            min="1"
+            value={form.sale_quantity}
+            onChange={(e) => set("sale_quantity", e.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-500">Units sold on this treatment</p>
         </div>
         <div className="flex flex-wrap gap-2 pt-2">
           <Button

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import type { Appointment } from "@/types";
@@ -85,7 +85,7 @@ export default function AppointmentsPage() {
       setModal(null);
       setEditing(null);
     },
-    onError: () => toast.error("Failed to save appointment"),
+    onError: (err) => toast.error(extractApiError(err, "Failed to save appointment")),
   });
 
   const handleDelete = async (a: Appointment) => {
@@ -212,6 +212,7 @@ export default function AppointmentsPage() {
       >
         <AppointmentForm
           initial={editing ?? undefined}
+          existingAppointments={data ?? []}
           loading={saveMutation.isPending}
           onSubmit={(values) =>
             saveMutation.mutateAsync({ values, appointmentId: editing?.id })
