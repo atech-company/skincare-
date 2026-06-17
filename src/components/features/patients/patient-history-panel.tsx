@@ -36,7 +36,10 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
-import type { Document } from "@/types";
+import { PaymentForm } from "@/components/features/payments/payment-form";
+import { ExportPrintMenu, paymentInvoiceItems } from "@/components/shared/export-print-menu";
+import { useModuleAccess } from "@/hooks/use-module-access";
+import type { Document, Payment } from "@/types";
 
 const TYPE_FILTERS: { key: string; label: string; types?: PatientHistoryEventType[] }[] = [
   { key: "all", label: "All types" },
@@ -80,7 +83,27 @@ type DateGroup = { date: string; events: PatientHistoryEvent[] };
 
 function metaText(meta: Record<string, unknown> | undefined, key: string): string | null {
   const v = meta?.[key];
-  return typeof v === "string" && v.length > 0 ? v : null;
+  if (typeof v === "string" && v.length > 0) return v;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (v && typeof v === "object" && "value" in v && typeof (v as { value: unknown }).value === "string") {
+    return (v as { value: string }).value;
+  }
+  return null;
+}
+
+function displayStatus(status: unknown): string | null {
+  if (typeof status === "string" && status.length > 0) return status;
+  if (status && typeof status === "object" && "value" in status) {
+    const v = (status as { value: unknown }).value;
+    return typeof v === "string" ? v : v != null ? String(v) : null;
+  }
+  return status != null ? String(status) : null;
+}
+
+function eventAmount(event: PatientHistoryEvent): number | null {
+  if (event.amount == null) return null;
+  const n = Number(event.amount);
+  return Number.isFinite(n) ? n : null;
 }
 
 function metaNumber(meta: Record<string, unknown> | undefined, key: string): number | null {
@@ -107,6 +130,28 @@ function eventToDocument(
     patient_uuid: patientUuid,
     patient_name: patientName,
     created_at: event.date,
+  };
+}
+
+function eventToPayment(event: PatientHistoryEvent, patientUuid: string): Payment | null {
+  const id = metaNumber(event.meta, "payment_id");
+  const paymentUuid = metaText(event.meta, "payment_uuid") ?? event.id.replace(/^payment-/, "");
+  const amount = eventAmount(event);
+  if (!paymentUuid || amount == null) return null;
+
+  return {
+    id: id ?? 0,
+    uuid: paymentUuid,
+    amount,
+    payment_method: metaText(event.meta, "payment_method") ?? "cash",
+    status: displayStatus(event.status) ?? "paid",
+    reference: metaText(event.meta, "reference") ?? undefined,
+    notes: metaText(event.meta, "notes") ?? undefined,
+    paid_at: metaText(event.meta, "paid_at") ?? event.date,
+    treatment_session_uuid: metaText(event.meta, "treatment_session_uuid") ?? undefined,
+    treatment_name: metaText(event.meta, "treatment_name") ?? undefined,
+    patient_uuid: patientUuid,
+    patient_name: undefined,
   };
 }
 
@@ -262,7 +307,7 @@ function groupEventsByDate(events: PatientHistoryEvent[]): DateGroup[] {
 
 function usePatientHistory(uuid: string, enabled: boolean) {
   return useQuery({
-    queryKey: ["patient-history", "v4", uuid],
+    queryKey: ["patient-history", "v5", uuid],
     queryFn: async () => {
       const res = await api.get<{ data: unknown }>(`/patients/${uuid}/timeline`);
       return normalizePatientHistory(res.data.data);
@@ -337,7 +382,9 @@ function HistoryEventCard({
   onPreviewDocument,
   onDownloadDocument,
   onDeleteDocument,
+  onEditPayment,
   onImageSelect,
+  canManagePayments,
   compact,
 }: {
   event: PatientHistoryEvent;
@@ -346,15 +393,21 @@ function HistoryEventCard({
   onPreviewDocument: (doc: Document) => void;
   onDownloadDocument: (doc: Document) => void;
   onDeleteDocument: (doc: Document) => void;
+  onEditPayment: (payment: Payment) => void;
   onImageSelect: (selected: SelectedImage) => void;
+  canManagePayments: boolean;
   compact?: boolean;
 }) {
   const Icon = TYPE_ICON[event.type];
   const doctorName = metaText(event.meta, "doctor_name");
   const paymentMethod = metaText(event.meta, "payment_method");
+  const paymentReference = metaText(event.meta, "reference");
   const routinePeriod = metaText(event.meta, "routine_period");
   const appointmentTime = metaText(event.meta, "appointment_time");
   const document = event.type === "document" ? eventToDocument(event, patientUuid, patientName) : null;
+  const payment = event.type === "payment" ? eventToPayment(event, patientUuid) : null;
+  const statusLabel = displayStatus(event.status);
+  const amount = eventAmount(event);
 
   return (
     <div
@@ -375,7 +428,7 @@ function HistoryEventCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="muted">{TYPE_LABEL[event.type]}</Badge>
-            {event.status && <Badge variant="default">{event.status}</Badge>}
+            {statusLabel && <Badge variant="default">{statusLabel}</Badge>}
             {!compact && <span className="text-xs text-slate-500">{formatDate(event.date)}</span>}
           </div>
           <p className={cn("font-semibold", compact ? "text-sm" : "mt-1")}>{event.title}</p>
@@ -386,7 +439,10 @@ function HistoryEventCard({
             <p className="text-xs text-slate-500">Doctor: {doctorName}</p>
           )}
           {event.type === "payment" && paymentMethod && (
-            <p className="text-xs text-slate-500">Method: {paymentMethod}</p>
+            <p className="text-xs text-slate-500 capitalize">Method: {paymentMethod.replace(/_/g, " ")}</p>
+          )}
+          {event.type === "payment" && paymentReference && (
+            <p className="text-xs text-slate-500">Reference: {paymentReference}</p>
           )}
           {event.type === "product_assigned" && routinePeriod && (
             <p className="text-xs text-slate-500 capitalize">Routine: {routinePeriod}</p>
@@ -401,13 +457,34 @@ function HistoryEventCard({
           )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          {event.amount != null && (
-            <span className="font-semibold text-violet-600">{formatCurrency(event.amount)}</span>
+          {amount != null && (
+            <span className="font-semibold text-violet-600">{formatCurrency(amount)}</span>
           )}
           {event.href && (
             <Link href={event.href} className="text-xs text-violet-600 hover:underline">
-              Open
+              {event.type === "payment" ? "View session" : "Open"}
             </Link>
+          )}
+          {payment && canManagePayments && payment.id > 0 && (
+            <div className="flex flex-wrap justify-end gap-1">
+              <Button type="button" variant="secondary" size="sm" onClick={() => onEditPayment(payment)}>
+                Manage
+              </Button>
+              <ExportPrintMenu
+                items={paymentInvoiceItems(patientUuid, payment.uuid)}
+                label="Receipt"
+                size="sm"
+                variant="secondary"
+              />
+            </div>
+          )}
+          {payment && (!canManagePayments || payment.id <= 0) && (
+            <ExportPrintMenu
+              items={paymentInvoiceItems(patientUuid, payment.uuid)}
+              label="Receipt"
+              size="sm"
+              variant="secondary"
+            />
           )}
           {document && (
             <div className="flex flex-wrap justify-end gap-1">
@@ -478,7 +555,9 @@ function HistoryDateTree({
   onPreviewDocument,
   onDownloadDocument,
   onDeleteDocument,
+  onEditPayment,
   onImageSelect,
+  canManagePayments,
 }: {
   groups: DateGroup[];
   uuid: string;
@@ -486,7 +565,9 @@ function HistoryDateTree({
   onPreviewDocument: (doc: Document) => void;
   onDownloadDocument: (doc: Document) => void;
   onDeleteDocument: (doc: Document) => void;
+  onEditPayment: (payment: Payment) => void;
   onImageSelect: (selected: SelectedImage) => void;
+  canManagePayments: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(groups.slice(0, 5).map((g) => g.date)));
 
@@ -539,7 +620,9 @@ function HistoryDateTree({
                       onPreviewDocument={onPreviewDocument}
                       onDownloadDocument={onDownloadDocument}
                       onDeleteDocument={onDeleteDocument}
+                      onEditPayment={onEditPayment}
                       onImageSelect={onImageSelect}
+                      canManagePayments={canManagePayments}
                       compact
                     />
                   </div>
@@ -661,6 +744,7 @@ function HistoryBody({
   isLoading: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { canInteract: canManagePayments } = useModuleAccess("payments");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -668,10 +752,33 @@ function HistoryBody({
   const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const refreshHistory = () => {
-    queryClient.invalidateQueries({ queryKey: ["patient-history", "v4", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["patient-history", "v5", uuid] });
     queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["patient-balance", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["payments"] });
+    queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
+  };
+
+  const savePayment = async (values: Record<string, unknown> & { treatment_session_uuid?: string }) => {
+    if (!editingPayment) return;
+    setSavingPayment(true);
+    try {
+      await api.put(`/payments/${editingPayment.id}`, {
+        ...values,
+        treatment_session_uuid: values.treatment_session_uuid || null,
+      });
+      toast.success("Payment updated");
+      setEditingPayment(null);
+      refreshHistory();
+    } catch {
+      toast.error("Could not update payment");
+    } finally {
+      setSavingPayment(false);
+    }
   };
 
   const handleDownloadDocument = async (doc: Document) => {
@@ -797,7 +904,9 @@ function HistoryBody({
           onPreviewDocument={setPreviewDoc}
           onDownloadDocument={(doc) => void handleDownloadDocument(doc)}
           onDeleteDocument={(doc) => void handleDeleteDocument(doc)}
+          onEditPayment={setEditingPayment}
           onImageSelect={setSelectedImage}
+          canManagePayments={canManagePayments}
         />
       ) : (
         <div className="relative space-y-3 pl-2 before:absolute before:left-0 before:top-2 before:h-[calc(100%-8px)] before:w-px before:bg-violet-200 dark:before:bg-violet-800">
@@ -810,7 +919,9 @@ function HistoryBody({
               onPreviewDocument={setPreviewDoc}
               onDownloadDocument={(doc) => void handleDownloadDocument(doc)}
               onDeleteDocument={(doc) => void handleDeleteDocument(doc)}
+              onEditPayment={setEditingPayment}
               onImageSelect={setSelectedImage}
+              canManagePayments={canManagePayments}
             />
           ))}
           {!filteredEvents.length && (
@@ -841,6 +952,23 @@ function HistoryBody({
           onClose={() => setSelectedImage(null)}
           onChanged={refreshHistory}
         />
+      )}
+
+      {editingPayment && (
+        <Modal
+          open
+          onClose={() => setEditingPayment(null)}
+          title="Edit payment"
+          description={`Update payment for ${patientName}`}
+          className="max-w-lg"
+        >
+          <PaymentForm
+            patientUuid={uuid}
+            initial={editingPayment}
+            loading={savingPayment}
+            onSubmit={savePayment}
+          />
+        </Modal>
       )}
     </div>
   );
