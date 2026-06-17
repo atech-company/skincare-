@@ -10,6 +10,69 @@ import { slugifyFieldKey } from "@/lib/form-field-utils";
 import { useFormFields } from "@/hooks/use-form-fields";
 import type { FormEntityType, FormFieldDefinition } from "@/types/form-fields";
 
+function formatOptionLabel(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function SelectFieldInput({
+  def,
+  value,
+  onChange,
+}: {
+  def: FormFieldDefinition;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const baseOptions = def.options ?? [];
+  const trimmed = value.trim();
+  const isStandard = baseOptions.some((o) => o.value === trimmed);
+  const allowCustom = def.field_key === "skin_type";
+  const dropdownOnly = def.field_key === "gender";
+
+  const displayOptions =
+    allowCustom && trimmed && !isStandard
+      ? [...baseOptions, { value: trimmed, label: formatOptionLabel(trimmed) }]
+      : baseOptions;
+
+  const inDisplayList = trimmed && displayOptions.some((o) => o.value === trimmed);
+
+  const customTextValue =
+    allowCustom && inDisplayList && !isStandard ? "" : isStandard ? "" : value;
+
+  return (
+    <div className="space-y-2">
+      <select
+        className={selectClass}
+        value={inDisplayList ? trimmed : ""}
+        onChange={(e) => onChange(e.target.value)}
+        required={def.is_required && !trimmed}
+      >
+        {!def.is_required && (
+          <option value="" className={optionClass}>
+            —
+          </option>
+        )}
+        {displayOptions.map((opt) => (
+          <option key={opt.value} value={opt.value} className={optionClass}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      {(allowCustom || !dropdownOnly) && (
+        <Input
+          placeholder="Or type your own value"
+          value={customTextValue}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
 function FieldInput({
   def,
   value,
@@ -43,39 +106,8 @@ function FieldInput({
           {def.label}
         </label>
       );
-    case "select": {
-      const options = def.options ?? [];
-      const inList = options.some((o) => o.value === value);
-      const dropdownOnly = def.field_key === "skin_type" || def.field_key === "gender";
-      return (
-        <div className="space-y-2">
-          <select
-            className={selectClass}
-            value={inList ? value : ""}
-            onChange={(e) => onChange(e.target.value)}
-            required={def.is_required && !value}
-          >
-            {!def.is_required && (
-              <option value="" className={optionClass}>
-                —
-              </option>
-            )}
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value} className={optionClass}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {!dropdownOnly && (
-            <Input
-              placeholder="Or type your own value"
-              value={inList ? "" : value}
-              onChange={(e) => onChange(e.target.value)}
-            />
-          )}
-        </div>
-      );
-    }
+    case "select":
+      return <SelectFieldInput def={def} value={value} onChange={onChange} />;
     default:
       return <Input {...common} placeholder={def.label} required={def.is_required} />;
   }

@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   ChevronDown,
   ChevronRight,
   DollarSign,
+  Download,
+  ExternalLink,
   FileText,
   GitBranch,
   History,
@@ -16,10 +18,14 @@ import {
   List,
   Package,
   Stethoscope,
+  Trash2,
   UserPlus,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api, mediaUrl } from "@/lib/api";
 import { EMPTY_HISTORY_SUMMARY, normalizePatientHistory } from "@/lib/api-data";
+import { confirmDelete, deleteResource } from "@/lib/crud";
+import { downloadDocument } from "@/lib/document-utils";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import type { PatientHistoryEvent, PatientHistoryEventType, PatientHistoryPayload } from "@/types/patient-history";
 import type { TreatmentImage } from "@/types";
@@ -75,6 +81,138 @@ type DateGroup = { date: string; events: PatientHistoryEvent[] };
 function metaText(meta: Record<string, unknown> | undefined, key: string): string | null {
   const v = meta?.[key];
   return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+function metaNumber(meta: Record<string, unknown> | undefined, key: string): number | null {
+  const v = meta?.[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function eventToDocument(
+  event: PatientHistoryEvent,
+  patientUuid: string,
+  patientName: string,
+): Document | null {
+  const fileUrl = mediaUrl(metaText(event.meta, "file_url"));
+  const id = metaNumber(event.meta, "document_id");
+  if (!fileUrl || !id) return null;
+  return {
+    id,
+    uuid: metaText(event.meta, "document_uuid") ?? event.id.replace(/^document-/, ""),
+    title: event.title,
+    category: event.description ?? "document",
+    file_url: fileUrl,
+    mime_type: metaText(event.meta, "mime_type") ?? "application/octet-stream",
+    file_size: metaNumber(event.meta, "file_size") ?? 0,
+    patient_uuid: patientUuid,
+    patient_name: patientName,
+    created_at: event.date,
+  };
+}
+
+type SelectedImage = { image: TreatmentImage; sessionHref?: string | null };
+
+function TreatmentImageHistoryModal({
+  selected,
+  onClose,
+  onChanged,
+}: {
+  selected: SelectedImage;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { image, sessionHref } = selected;
+  const fullUrl = mediaUrl(image.file_url);
+
+  const handleDelete = async () => {
+    if (!(await confirmDelete("Delete this photo?"))) return;
+    if (await deleteResource(`/treatment-images/${image.id}`)) {
+      toast.success("Photo deleted");
+      onChanged();
+      onClose();
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${image.type.charAt(0).toUpperCase()}${image.type.slice(1)} photo`}
+      description={image.caption ?? "Treatment visual tracking"}
+      className="max-w-2xl"
+    >
+      <div className="space-y-4">
+        <div className="flex justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fullUrl ?? ""}
+            alt={image.type}
+            className="max-h-[min(60vh,28rem)] w-auto max-w-full object-contain"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {sessionHref && (
+            <Link href={sessionHref}>
+              <Button type="button" variant="secondary" size="sm">
+                <ExternalLink className="h-4 w-4" />
+                Manage on session
+              </Button>
+            </Link>
+          )}
+          {fullUrl && (
+            <Button type="button" variant="secondary" size="sm" asChild>
+              <a href={fullUrl} target="_blank" rel="noopener noreferrer">
+                Open full size
+              </a>
+            </Button>
+          )}
+          <Button type="button" variant="destructive" size="sm" onClick={() => void handleDelete()}>
+            <Trash2 className="h-4 w-4" />
+            Delete photo
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ClickableTreatmentImage({
+  image,
+  sessionHref,
+  onSelect,
+  className,
+  width,
+  height,
+}: {
+  image: TreatmentImage;
+  sessionHref?: string | null;
+  onSelect: (selected: SelectedImage) => void;
+  className?: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect({ image, sessionHref })}
+      className={cn(
+        "relative shrink-0 cursor-pointer overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:ring-2 hover:ring-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:ring-slate-700",
+        className,
+      )}
+      title={`Manage ${image.type} photo`}
+    >
+      <Image
+        src={mediaUrl(image.thumbnail_url || image.file_url) ?? ""}
+        alt={image.type}
+        width={width}
+        height={height}
+        className="h-full w-full object-cover"
+      />
+      <Badge variant="muted" className="absolute bottom-1 left-1 capitalize">
+        {image.type}
+      </Badge>
+    </button>
+  );
 }
 
 function eventDateKey(date: string) {
@@ -134,7 +272,13 @@ function usePatientHistory(uuid: string, enabled: boolean) {
   });
 }
 
-function VisualGallery({ events }: { events: PatientHistoryEvent[] }) {
+function VisualGallery({
+  events,
+  onImageSelect,
+}: {
+  events: PatientHistoryEvent[];
+  onImageSelect: (selected: SelectedImage) => void;
+}) {
   const groups = useMemo(() => {
     const out: { date: string; title: string; href?: string | null; images: TreatmentImage[] }[] = [];
     events.forEach((e) => {
@@ -169,18 +313,15 @@ function VisualGallery({ events }: { events: PatientHistoryEvent[] }) {
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {g.images.map((img) => (
-              <div key={img.uuid} className="relative shrink-0">
-                <Image
-                  src={mediaUrl(img.thumbnail_url || img.file_url) ?? ""}
-                  alt={img.type}
-                  width={96}
-                  height={96}
-                  className="h-24 w-24 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
-                />
-                <Badge variant="muted" className="absolute bottom-1 left-1 capitalize">
-                  {img.type}
-                </Badge>
-              </div>
+              <ClickableTreatmentImage
+                key={img.uuid}
+                image={img}
+                sessionHref={g.href}
+                onSelect={onImageSelect}
+                width={96}
+                height={96}
+                className="h-24 w-24"
+              />
             ))}
           </div>
         </div>
@@ -194,12 +335,18 @@ function HistoryEventCard({
   patientUuid,
   patientName,
   onPreviewDocument,
+  onDownloadDocument,
+  onDeleteDocument,
+  onImageSelect,
   compact,
 }: {
   event: PatientHistoryEvent;
   patientUuid: string;
   patientName: string;
   onPreviewDocument: (doc: Document) => void;
+  onDownloadDocument: (doc: Document) => void;
+  onDeleteDocument: (doc: Document) => void;
+  onImageSelect: (selected: SelectedImage) => void;
   compact?: boolean;
 }) {
   const Icon = TYPE_ICON[event.type];
@@ -207,8 +354,7 @@ function HistoryEventCard({
   const paymentMethod = metaText(event.meta, "payment_method");
   const routinePeriod = metaText(event.meta, "routine_period");
   const appointmentTime = metaText(event.meta, "appointment_time");
-  const fileUrl = mediaUrl(metaText(event.meta, "file_url"));
-  const documentUuid = metaText(event.meta, "document_uuid");
+  const document = event.type === "document" ? eventToDocument(event, patientUuid, patientName) : null;
 
   return (
     <div
@@ -263,27 +409,30 @@ function HistoryEventCard({
               Open
             </Link>
           )}
-          {event.type === "document" && fileUrl && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                onPreviewDocument({
-                  id: 0,
-                  uuid: documentUuid ?? event.id,
-                  title: event.title,
-                  category: event.description ?? "document",
-                  file_url: fileUrl ?? "",
-                  mime_type: metaText(event.meta, "mime_type") ?? "application/octet-stream",
-                  file_size: 0,
-                  patient_uuid: patientUuid,
-                  patient_name: patientName,
-                })
-              }
-            >
-              Preview
-            </Button>
+          {document && (
+            <div className="flex flex-wrap justify-end gap-1">
+              <Button type="button" variant="secondary" size="sm" onClick={() => onPreviewDocument(document)}>
+                Manage
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                title="Download"
+                onClick={() => onDownloadDocument(document)}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                title="Delete document"
+                onClick={() => onDeleteDocument(document)}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -306,13 +455,14 @@ function HistoryEventCard({
       {event.images && event.images.length > 0 && (
         <div className="mt-2 flex gap-2 overflow-x-auto">
           {event.images.map((img) => (
-            <Image
+            <ClickableTreatmentImage
               key={img.uuid}
-              src={mediaUrl(img.thumbnail_url || img.file_url) ?? ""}
-              alt={img.type}
+              image={img}
+              sessionHref={event.href}
+              onSelect={onImageSelect}
               width={72}
               height={72}
-              className="h-14 w-14 shrink-0 rounded-lg object-cover sm:h-16 sm:w-16"
+              className="h-14 w-14 sm:h-16 sm:w-16"
             />
           ))}
         </div>
@@ -326,11 +476,17 @@ function HistoryDateTree({
   uuid,
   patientName,
   onPreviewDocument,
+  onDownloadDocument,
+  onDeleteDocument,
+  onImageSelect,
 }: {
   groups: DateGroup[];
   uuid: string;
   patientName: string;
   onPreviewDocument: (doc: Document) => void;
+  onDownloadDocument: (doc: Document) => void;
+  onDeleteDocument: (doc: Document) => void;
+  onImageSelect: (selected: SelectedImage) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(groups.slice(0, 5).map((g) => g.date)));
 
@@ -381,6 +537,9 @@ function HistoryDateTree({
                       patientUuid={uuid}
                       patientName={patientName}
                       onPreviewDocument={onPreviewDocument}
+                      onDownloadDocument={onDownloadDocument}
+                      onDeleteDocument={onDeleteDocument}
+                      onImageSelect={onImageSelect}
                       compact
                     />
                   </div>
@@ -501,12 +660,37 @@ function HistoryBody({
   data?: PatientHistoryPayload;
   isLoading: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [datePreset, setDatePreset] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+
+  const refreshHistory = () => {
+    queryClient.invalidateQueries({ queryKey: ["patient-history", "v4", uuid] });
+    queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
+  };
+
+  const handleDownloadDocument = async (doc: Document) => {
+    try {
+      await downloadDocument(doc, patientName);
+      toast.success("Download started");
+    } catch {
+      toast.error("Could not download file");
+    }
+  };
+
+  const handleDeleteDocument = async (doc: Document) => {
+    if (!(await confirmDelete(`Delete "${doc.title}"?`))) return;
+    if (await deleteResource(`/documents/${doc.id}`)) {
+      toast.success("Document deleted");
+      if (previewDoc?.id === doc.id) setPreviewDoc(null);
+      refreshHistory();
+    }
+  };
 
   const allEvents = Array.isArray(data?.events) ? data.events : [];
 
@@ -560,7 +744,7 @@ function HistoryBody({
           <ImageIcon className="h-4 w-4 text-violet-600" />
           Visual tracking
         </h3>
-        <VisualGallery events={filteredEvents} />
+        <VisualGallery events={filteredEvents} onImageSelect={setSelectedImage} />
       </div>
 
       <HistoryFilters
@@ -611,6 +795,9 @@ function HistoryBody({
           uuid={uuid}
           patientName={patientName}
           onPreviewDocument={setPreviewDoc}
+          onDownloadDocument={(doc) => void handleDownloadDocument(doc)}
+          onDeleteDocument={(doc) => void handleDeleteDocument(doc)}
+          onImageSelect={setSelectedImage}
         />
       ) : (
         <div className="relative space-y-3 pl-2 before:absolute before:left-0 before:top-2 before:h-[calc(100%-8px)] before:w-px before:bg-violet-200 dark:before:bg-violet-800">
@@ -621,6 +808,9 @@ function HistoryBody({
               patientUuid={uuid}
               patientName={patientName}
               onPreviewDocument={setPreviewDoc}
+              onDownloadDocument={(doc) => void handleDownloadDocument(doc)}
+              onDeleteDocument={(doc) => void handleDeleteDocument(doc)}
+              onImageSelect={setSelectedImage}
             />
           ))}
           {!filteredEvents.length && (
@@ -630,10 +820,26 @@ function HistoryBody({
       )}
 
       {previewDoc && (
-        <DocumentViewerPanel
-          doc={previewDoc}
-          patientName={patientName}
+        <Modal
+          open
           onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          description="Preview, download, or manage this document"
+          className="max-w-3xl"
+        >
+          <DocumentViewerPanel
+            doc={previewDoc}
+            patientName={patientName}
+            onClose={() => setPreviewDoc(null)}
+          />
+        </Modal>
+      )}
+
+      {selectedImage && (
+        <TreatmentImageHistoryModal
+          selected={selectedImage}
+          onClose={() => setSelectedImage(null)}
+          onChanged={refreshHistory}
         />
       )}
     </div>
