@@ -57,8 +57,8 @@ export function ModulesManager({
       <CardHeader>
         <CardTitle>Modules</CardTitle>
         <CardDescription className={isPlatform ? "text-slate-400" : undefined}>
-          Enable or disable clinic modules. &quot;Lock for staff&quot; blocks non-admin users until
-          you unlock it here (admins always have access).
+          Enable or disable clinic modules. &quot;Lock for staff&quot; hides the module from clinic
+          admins and staff. Only the platform super admin can access locked modules.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

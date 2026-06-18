@@ -126,7 +126,7 @@ export function isModuleLockedForUser(
   config: ModuleConfig,
   roles: string[] = [],
 ): boolean {
-  if (roles.includes("admin") || roles.includes("super_admin")) {
+  if (roles.includes("super_admin")) {
     return false;
   }
   return config.locked_for_non_admin.includes(module);

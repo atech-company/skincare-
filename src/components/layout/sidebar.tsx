@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { ChevronLeft, Lock, Sparkles } from "lucide-react";
+import { ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
-  isModuleLockedForUser,
-  isModuleVisible,
+  canUseModule,
   NAV_MODULES,
 } from "@/lib/modules";
 import { normalizeRoles } from "@/lib/auth-roles";
@@ -37,7 +36,7 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen, onCloseMobile]);
 
-  const items = NAV_MODULES.filter((item) => isModuleVisible(item.module, modules));
+  const items = NAV_MODULES.filter((item) => canUseModule(item.module, modules, roles));
 
   return (
     <>
@@ -76,7 +75,6 @@ export function Sidebar({
                 ? pathname === "/patients"
                 : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
-            const locked = isModuleLockedForUser(item.module, modules, roles);
 
             return (
               <Link key={item.href} href={item.href} prefetch onClick={onCloseMobile}>
@@ -85,17 +83,11 @@ export function Sidebar({
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                     active
                       ? "bg-gradient-to-r from-violet-600/10 to-indigo-600/10 text-violet-700 dark:text-violet-300"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800",
-                    locked && !active && "opacity-90"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                   )}
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", active && "text-violet-600")} />
-                  {!sidebarCollapsed && (
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      <span>{item.label}</span>
-                      {locked && <Lock className="h-3.5 w-3.5 text-amber-600" />}
-                    </span>
-                  )}
+                  {!sidebarCollapsed && <span>{item.label}</span>}
                 </span>
               </Link>
             );
