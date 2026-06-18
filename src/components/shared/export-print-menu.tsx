@@ -55,6 +55,11 @@ export function ExportPrintMenu({
 
   const run = async (item: ExportPrintItem, key: string) => {
     setLoadingKey(key);
+    const loadingToast = toast.loading(
+      item.type === "export" && item.paper === "receipt"
+        ? "Generating receipt…"
+        : "Preparing export…"
+    );
     try {
       let successMessage = "Download started";
       if (item.type === "report") {
@@ -74,10 +79,10 @@ export function ExportPrintMenu({
           filename: item.filename,
         });
       }
-      toast.success(successMessage);
+      toast.success(successMessage, { id: loadingToast });
       setOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Export failed");
+      toast.error(err instanceof Error ? err.message : "Export failed", { id: loadingToast });
     } finally {
       setLoadingKey(null);
     }
