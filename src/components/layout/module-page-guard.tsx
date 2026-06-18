@@ -39,7 +39,9 @@ export function ModulePageGuardInner({
 
   if (isModuleLockedForUser(moduleKey, modules, roles)) {
     return (
-      <ModuleLockedOverlay title={`${MODULE_LABELS[moduleKey]} — locked`} />
+      <ModuleLockedOverlay title={`${MODULE_LABELS[moduleKey]} — locked`}>
+        {children}
+      </ModuleLockedOverlay>
     );
   }
 

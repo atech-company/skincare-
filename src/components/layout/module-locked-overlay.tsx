@@ -45,8 +45,10 @@ export function ModuleLockedOverlay({
         className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[1px]"
         role="presentation"
       >
-        {notice}
-        <p className="absolute bottom-6 text-xs text-white/50">Preview only — interactions are disabled</p>
+        <div>
+          {notice}
+          <p className="mt-4 text-center text-xs text-white/50">Preview only — interactions are disabled</p>
+        </div>
       </div>
     </div>
   );
