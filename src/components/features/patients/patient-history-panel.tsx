@@ -37,7 +37,7 @@ import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
 import { PaymentForm } from "@/components/features/payments/payment-form";
-import { ExportPrintMenu, paymentInvoiceItems } from "@/components/shared/export-print-menu";
+import { ExportPrintMenu, invoiceExportItems, paymentInvoiceItems } from "@/components/shared/export-print-menu";
 import { useModuleAccess } from "@/hooks/use-module-access";
 import type { Document, Payment } from "@/types";
 
@@ -150,6 +150,8 @@ function eventToPayment(event: PatientHistoryEvent, patientUuid: string): Paymen
     paid_at: metaText(event.meta, "paid_at") ?? event.date,
     treatment_session_uuid: metaText(event.meta, "treatment_session_uuid") ?? undefined,
     treatment_name: metaText(event.meta, "treatment_name") ?? undefined,
+    invoice_uuid: metaText(event.meta, "invoice_uuid") ?? undefined,
+    invoice_number: metaText(event.meta, "invoice_number") ?? undefined,
     patient_uuid: patientUuid,
     patient_name: undefined,
   };
@@ -471,7 +473,11 @@ function HistoryEventCard({
                 Manage
               </Button>
               <ExportPrintMenu
-                items={paymentInvoiceItems(patientUuid, payment.uuid)}
+                items={
+                  payment.invoice_uuid
+                    ? invoiceExportItems(payment.invoice_uuid)
+                    : paymentInvoiceItems(patientUuid, payment.uuid)
+                }
                 label="Receipt"
                 size="sm"
                 variant="secondary"
@@ -480,7 +486,11 @@ function HistoryEventCard({
           )}
           {payment && (!canManagePayments || payment.id <= 0) && (
             <ExportPrintMenu
-              items={paymentInvoiceItems(patientUuid, payment.uuid)}
+              items={
+                payment.invoice_uuid
+                  ? invoiceExportItems(payment.invoice_uuid)
+                  : paymentInvoiceItems(patientUuid, payment.uuid)
+              }
               label="Receipt"
               size="sm"
               variant="secondary"

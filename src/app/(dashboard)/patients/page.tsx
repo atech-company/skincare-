@@ -28,17 +28,24 @@ export default function PatientsPage() {
   const { canFetch } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [address, setAddress] = useState("");
   const debouncedSearch = useDebouncedValue(search);
+  const debouncedAddress = useDebouncedValue(address);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Patient | null>(null);
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["patients", debouncedSearch, page],
+    queryKey: ["patients", debouncedSearch, debouncedAddress, page],
     enabled: canFetch,
     queryFn: async () => {
       const res = await api.get<{ data: Patient[]; meta: PaginatedMeta }>("/patients", {
-        params: { search: debouncedSearch || undefined, page, per_page: 10 },
+        params: {
+          search: debouncedSearch || undefined,
+          address: debouncedAddress || undefined,
+          page,
+          per_page: 10,
+        },
       });
       return { ...res.data, data: unwrapList<Patient>(res.data) };
     },
@@ -55,8 +62,20 @@ export default function PatientsPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <ExportPrintMenu
             items={[
-              { type: "report", report: "patients", format: "pdf", label: "PDF (A4)", params: { search: debouncedSearch } },
-              { type: "report", report: "patients", format: "csv", label: "Excel (CSV)", params: { search: debouncedSearch } },
+              {
+                type: "report",
+                report: "patients",
+                format: "pdf",
+                label: "PDF (A4)",
+                params: { search: debouncedSearch, address: debouncedAddress },
+              },
+              {
+                type: "report",
+                report: "patients",
+                format: "csv",
+                label: "Excel (CSV)",
+                params: { search: debouncedSearch, address: debouncedAddress },
+              },
             ]}
             label="Export list"
           />
@@ -71,17 +90,34 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      <div className="relative w-full max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          className="pl-9"
-          placeholder="Search by name or phone..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        />
-        {isFetching && !isLoading && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">Searching…</span>
-        )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            className="pl-9"
+            placeholder="Search by name, phone, or address..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+          {isFetching && !isLoading && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+              Searching…
+            </span>
+          )}
+        </div>
+        <div className="relative w-full max-w-sm">
+          <Input
+            placeholder="Filter by address..."
+            value={address}
+            onChange={(e) => {
+              setAddress(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
 
       <Card>
@@ -90,25 +126,37 @@ export default function PatientsPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-800 md:hidden">
             {isLoading
               ? Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="p-4"><Skeleton className="h-16 w-full" /></div>
+                  <div key={i} className="p-4">
+                    <Skeleton className="h-16 w-full" />
+                  </div>
                 ))
               : data?.data?.map((patient) => (
                   <div key={patient.uuid} className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <Link href={`/patients/${patient.uuid}`} className="font-medium hover:text-violet-600 dark:hover:text-violet-300">
+                        <Link
+                          href={`/patients/${patient.uuid}`}
+                          className="font-medium hover:text-violet-600 dark:hover:text-violet-300"
+                        >
                           {patient.full_name}
                         </Link>
                         <p className="text-sm text-slate-600 dark:text-slate-400">{patient.phone}</p>
+                        {patient.address && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{patient.address}</p>
+                        )}
                       </div>
                       {patient.skin_type && <Badge variant="muted">{patient.skin_type}</Badge>}
                     </div>
                     {patient.created_at && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(patient.created_at)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatDate(patient.created_at)}
+                      </p>
                     )}
                     <div className="flex flex-wrap gap-2">
                       <Link href={`/patients/${patient.uuid}`} className="flex-1 sm:flex-none">
-                        <Button variant="secondary" size="sm" className="w-full">View</Button>
+                        <Button variant="secondary" size="sm" className="w-full">
+                          View
+                        </Button>
                       </Link>
                       <PatientHistoryButton
                         uuid={patient.uuid}
@@ -131,6 +179,7 @@ export default function PatientsPage() {
                 <tr className="border-b border-slate-100 text-left text-slate-500 dark:border-slate-800">
                   <th className="p-4 font-medium">Name</th>
                   <th className="p-4 font-medium">Phone</th>
+                  <th className="p-4 font-medium">Address</th>
                   <th className="p-4 font-medium">Skin type</th>
                   <th className="p-4 font-medium">Created</th>
                   <th className="p-4 font-medium text-right">Actions</th>
@@ -139,7 +188,11 @@ export default function PatientsPage() {
               <tbody>
                 {isLoading
                   ? Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}><td colSpan={5} className="p-4"><Skeleton className="h-8 w-full" /></td></tr>
+                      <tr key={i}>
+                        <td colSpan={6} className="p-4">
+                          <Skeleton className="h-8 w-full" />
+                        </td>
+                      </tr>
                     ))
                   : data?.data?.map((patient) => (
                       <tr
@@ -152,6 +205,9 @@ export default function PatientsPage() {
                           </Link>
                         </td>
                         <td className="p-4 text-slate-600 dark:text-slate-300">{patient.phone}</td>
+                        <td className="max-w-[220px] truncate p-4 text-slate-600 dark:text-slate-300">
+                          {patient.address || "—"}
+                        </td>
                         <td className="p-4">
                           {patient.skin_type && <Badge variant="muted">{patient.skin_type}</Badge>}
                         </td>
@@ -161,7 +217,9 @@ export default function PatientsPage() {
                         <td className="p-4">
                           <div className="flex justify-end gap-2">
                             <Link href={`/patients/${patient.uuid}`}>
-                              <Button variant="secondary" size="sm">View</Button>
+                              <Button variant="secondary" size="sm">
+                                View
+                              </Button>
                             </Link>
                             <PatientHistoryButton uuid={patient.uuid} patientName={patient.full_name} />
                             <CrudActions
@@ -176,17 +234,29 @@ export default function PatientsPage() {
             </table>
           </div>
           {!isLoading && !data?.data?.length && (
-            <p className="p-8 text-center text-slate-500 dark:text-slate-400">No patients yet. Click Add patient to create one.</p>
+            <p className="p-8 text-center text-slate-500 dark:text-slate-400">
+              No patients yet. Click Add patient to create one.
+            </p>
           )}
           {data?.meta && data.meta.last_page > 1 && (
             <div className="flex justify-center gap-2 p-4">
-              <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
                 Previous
               </Button>
               <span className="flex items-center text-sm text-slate-500">
                 Page {page} of {data.meta.last_page}
               </span>
-              <Button variant="secondary" size="sm" disabled={page >= data.meta.last_page} onClick={() => setPage((p) => p + 1)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page >= data.meta.last_page}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 Next
               </Button>
             </div>
@@ -196,11 +266,7 @@ export default function PatientsPage() {
 
       <PatientCreateModal open={createOpen} onClose={() => setCreateOpen(false)} />
       {editing && (
-        <PatientEditModal
-          patient={editing}
-          open={!!editing}
-          onClose={() => setEditing(null)}
-        />
+        <PatientEditModal patient={editing} open={!!editing} onClose={() => setEditing(null)} />
       )}
     </div>
   );

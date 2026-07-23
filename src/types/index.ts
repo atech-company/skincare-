@@ -35,10 +35,16 @@ export interface Patient {
 export interface SessionAccounting {
   treatment_amount: number;
   product_sales_amount: number;
+  subtotal?: number;
+  discount_type?: "none" | "percent" | "fixed";
+  discount_value?: number;
+  discount_amount?: number;
   total_amount: number;
   paid_amount: number;
   balance: number;
   status: "paid" | "partial" | "unpaid";
+  invoice_uuid?: string | null;
+  invoice_number?: string | null;
 }
 
 export interface TreatmentProductSale {
@@ -138,9 +144,49 @@ export interface Payment {
   paid_at?: string;
   treatment_session_id?: number;
   treatment_session_uuid?: string;
+  invoice_id?: number;
+  invoice_uuid?: string;
+  invoice_number?: string;
   patient_uuid?: string;
   patient_name?: string;
   treatment_name?: string;
+}
+
+export interface InvoiceItem {
+  id?: number;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  sort_order?: number;
+  product_id?: number | null;
+  product_uuid?: string;
+  product_name?: string;
+}
+
+export interface Invoice {
+  id: number;
+  uuid: string;
+  invoice_number: string;
+  status: string;
+  subtotal: number;
+  discount_type: "none" | "percent" | "fixed";
+  discount_value: number;
+  discount_amount: number;
+  total: number;
+  paid_amount: number;
+  balance: number;
+  notes?: string;
+  issued_at?: string;
+  created_at?: string;
+  patient_uuid?: string;
+  patient_name?: string;
+  patient_phone?: string;
+  treatment_session_id?: number | null;
+  treatment_session_uuid?: string;
+  treatment_name?: string;
+  items?: InvoiceItem[];
+  payments?: Payment[];
 }
 
 export interface PatientBalance {

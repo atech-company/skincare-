@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   Package,
+  Receipt,
   Stethoscope,
   Timeline,
   UserPlus,
@@ -64,6 +65,7 @@ export const NAV_MODULES: NavModuleItem[] = [
   { href: "/treatments", label: "Treatments", icon: Stethoscope, module: "treatments" },
   { href: "/products", label: "Products", icon: Package, module: "products" },
   { href: "/payments", label: "Payments", icon: DollarSign, module: "payments" },
+  { href: "/invoices", label: "Invoices", icon: Receipt, module: "payments" },
   { href: "/reports", label: "Reports", icon: FileBarChart, module: "reports" },
   { href: "/timeline", label: "Timeline", icon: Timeline, module: "timeline" },
   { href: "/documents", label: "Documents", icon: FileText, module: "documents" },
@@ -113,6 +115,7 @@ export function pathToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith("/treatments")) return "treatments";
   if (pathname.startsWith("/products")) return "products";
   if (pathname.startsWith("/payments")) return "payments";
+  if (pathname.startsWith("/invoices")) return "payments";
   if (pathname.startsWith("/reports")) return "reports";
   if (pathname.startsWith("/timeline")) return "timeline";
   if (pathname.startsWith("/documents")) return "documents";

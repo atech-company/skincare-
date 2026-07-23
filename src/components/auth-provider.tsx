@@ -41,15 +41,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    touchActivity();
-    const stored = getStoredToken();
-    setToken(stored);
-
-    if (isIdleExpired() || !stored) {
+    if (isIdleExpired()) {
       useAuthStore.getState().clearAuth();
       setInitialized(true);
       router.replace("/login");
+      return;
     }
+
+    const stored = getStoredToken();
+    setToken(stored);
+
+    if (!stored) {
+      useAuthStore.getState().clearAuth();
+      setInitialized(true);
+      router.replace("/login");
+      return;
+    }
+
+    touchActivity();
   }, [pathname, router, setInitialized, setToken, isInitialized]);
 
   // Bootstrap user once per token — fetch is not cancelled on route changes.

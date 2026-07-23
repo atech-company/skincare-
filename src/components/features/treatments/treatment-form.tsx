@@ -92,6 +92,10 @@ export function TreatmentForm({
 
     record_payment: true,
 
+    discount_type: "none" as "none" | "percent" | "fixed",
+
+    discount_value: "",
+
   });
 
 
@@ -189,6 +193,10 @@ export function TreatmentForm({
 
           payload.record_payment = payment.record_payment;
 
+          payload.discount_type = payment.discount_type;
+
+          payload.discount_value = payment.discount_type === "none" ? 0 : Number(payment.discount_value) || 0;
+
           delete payload.total_price;
 
         }
@@ -278,6 +286,14 @@ export function TreatmentForm({
           onTreatmentFeeChange={(v) => setPay("treatment_fee", v)}
 
           productSubtotal={productSubtotal}
+
+          discountType={payment.discount_type}
+
+          onDiscountTypeChange={(v) => setPay("discount_type", v)}
+
+          discountValue={payment.discount_value}
+
+          onDiscountValueChange={(v) => setPay("discount_value", v)}
 
           paymentMethod={payment.payment_method}
 

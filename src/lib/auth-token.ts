@@ -2,7 +2,7 @@ const TOKEN_KEY = "dermacare_api_token";
 const ACTIVITY_KEY = "dermacare_last_activity";
 const IDLE_MINUTES_KEY = "dermacare_idle_minutes";
 
-const DEFAULT_IDLE_MINUTES = 10;
+const DEFAULT_IDLE_MINUTES = 480;
 
 export function getIdleTimeoutMs(): number {
   if (typeof window === "undefined") return DEFAULT_IDLE_MINUTES * 60 * 1000;

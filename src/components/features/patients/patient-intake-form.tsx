@@ -59,6 +59,8 @@ export function PatientIntakeForm({
     payment_method: "cash",
     payment_status: "paid",
     record_payment: true,
+    discount_type: "none" as "none" | "percent" | "fixed",
+    discount_value: "",
   });
   const [productSubtotal, setProductSubtotal] = useState(0);
 
@@ -171,6 +173,11 @@ export function PatientIntakeForm({
     delete treatmentPayload.total_price;
     appendPayload(body, treatmentPayload);
     body.append("treatment_fee", payment.treatment_fee);
+    body.append("discount_type", payment.discount_type);
+    body.append(
+      "discount_value",
+      String(payment.discount_type === "none" ? 0 : Number(payment.discount_value) || 0)
+    );
     if (canUsePayments) {
       body.append("payment_method", payment.payment_method);
       body.append("payment_status", payment.payment_status);
@@ -340,6 +347,10 @@ export function PatientIntakeForm({
           treatmentFee={payment.treatment_fee}
           onTreatmentFeeChange={(v) => updatePayment("treatment_fee", v)}
           productSubtotal={productSubtotal}
+          discountType={payment.discount_type}
+          onDiscountTypeChange={(v) => updatePayment("discount_type", v)}
+          discountValue={payment.discount_value}
+          onDiscountValueChange={(v) => updatePayment("discount_value", v)}
           paymentMethod={payment.payment_method}
           onPaymentMethodChange={(v) => updatePayment("payment_method", v)}
           paymentStatus={payment.payment_status}
@@ -371,6 +382,10 @@ export function PatientIntakeForm({
               treatmentFee={payment.treatment_fee}
               onTreatmentFeeChange={(v) => updatePayment("treatment_fee", v)}
               productSubtotal={productSubtotal}
+              discountType={payment.discount_type}
+              onDiscountTypeChange={(v) => updatePayment("discount_type", v)}
+              discountValue={payment.discount_value}
+              onDiscountValueChange={(v) => updatePayment("discount_value", v)}
               paymentMethod={payment.payment_method}
               onPaymentMethodChange={(v) => updatePayment("payment_method", v)}
               paymentStatus={payment.payment_status}

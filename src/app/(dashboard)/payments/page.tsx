@@ -76,18 +76,21 @@ export default function PaymentsPage() {
     mutationFn: async (values: {
       patient: Patient;
       treatment_session_uuid?: string;
+      invoice_uuid?: string;
       [key: string]: unknown;
     }) => {
-      const { patient, treatment_session_uuid, ...rest } = values;
+      const { patient, treatment_session_uuid, invoice_uuid, ...rest } = values;
       await api.post("/payments", {
         patient_uuid: patient.uuid,
         treatment_session_uuid: treatment_session_uuid || null,
+        invoice_uuid: invoice_uuid || null,
         ...rest,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       queryClient.invalidateQueries({ queryKey: ["accounting-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Payment recorded");
       setModalOpen(false);
@@ -232,6 +235,7 @@ export default function PaymentsPage() {
                   <p className="font-medium">{p.patient_name ?? "Patient"}</p>
                   <p className="text-xs text-slate-500">
                     {p.paid_at ? formatDate(p.paid_at) : "—"} · {p.payment_method}
+                    {p.invoice_number && ` · ${p.invoice_number}`}
                     {p.treatment_name && ` · ${p.treatment_name}`}
                   </p>
                 </div>

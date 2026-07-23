@@ -10,7 +10,7 @@ import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
 import { useFormFields } from "@/hooks/use-form-fields";
 import { buildFormPayload, initFormState } from "@/lib/form-field-utils";
 import { selectClass, labelClass } from "@/lib/form-styles";
-import type { Payment, TreatmentSession } from "@/types";
+import type { Invoice, Payment, TreatmentSession } from "@/types";
 
 type SessionAccounting = {
   treatment_amount: number;
@@ -23,6 +23,7 @@ type SessionAccounting = {
 export function PaymentForm({
   patientUuid,
   defaultTreatmentSessionUuid,
+  defaultInvoiceUuid,
   suggestedAmount,
   initial,
   onSubmit,
@@ -30,9 +31,15 @@ export function PaymentForm({
 }: {
   patientUuid?: string;
   defaultTreatmentSessionUuid?: string;
+  defaultInvoiceUuid?: string;
   suggestedAmount?: number;
   initial?: Payment;
-  onSubmit: (values: Record<string, unknown> & { treatment_session_uuid: string }) => Promise<void>;
+  onSubmit: (
+    values: Record<string, unknown> & {
+      treatment_session_uuid: string;
+      invoice_uuid?: string;
+    }
+  ) => Promise<void>;
   loading?: boolean;
 }) {
   const { data: fields } = useFormFields("payment");
@@ -40,6 +47,9 @@ export function PaymentForm({
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [sessionUuid, setSessionUuid] = useState(
     initial?.treatment_session_uuid ?? defaultTreatmentSessionUuid ?? ""
+  );
+  const [invoiceUuid, setInvoiceUuid] = useState(
+    initial?.invoice_uuid ?? defaultInvoiceUuid ?? ""
   );
 
   const effectivePatientUuid = patientUuid ?? initial?.patient_uuid;
@@ -55,11 +65,23 @@ export function PaymentForm({
     },
   });
 
+  const { data: invoices } = useQuery({
+    queryKey: ["patient-invoices-payments", effectivePatientUuid],
+    enabled: !!effectivePatientUuid,
+    queryFn: async () => {
+      const res = await api.get("/invoices", {
+        params: { patient_uuid: effectivePatientUuid, per_page: 50 },
+      });
+      return unwrapList<Invoice>(res.data).filter((i) => i.status !== "cancelled");
+    },
+  });
+
   const selectedSession = sessions?.find((s) => s.uuid === sessionUuid);
+  const selectedInvoice = invoices?.find((i) => i.uuid === invoiceUuid);
 
   const { data: sessionDetail } = useQuery({
     queryKey: ["treatment", sessionUuid, "payment-form"],
-    enabled: !!sessionUuid && !initial,
+    enabled: !!sessionUuid && !initial && !invoiceUuid,
     queryFn: async () => {
       const res = await api.get<{ data: TreatmentSession & { accounting?: SessionAccounting } }>(
         `/treatment-sessions/${sessionUuid}`
@@ -83,6 +105,11 @@ export function PaymentForm({
   useEffect(() => {
     if (initial || !fields?.length) return;
 
+    if (selectedInvoice && selectedInvoice.balance > 0) {
+      setValues((v) => ({ ...v, amount: String(selectedInvoice.balance) }));
+      return;
+    }
+
     const balance =
       suggestedAmount != null && suggestedAmount > 0
         ? suggestedAmount
@@ -100,6 +127,8 @@ export function PaymentForm({
   }, [
     selectedSession?.uuid,
     selectedSession?.total_price,
+    selectedInvoice?.uuid,
+    selectedInvoice?.balance,
     initial,
     suggestedAmount,
     accounting?.balance,
@@ -116,10 +145,37 @@ export function PaymentForm({
         await onSubmit({
           ...buildFormPayload(fields, values, customFields),
           treatment_session_uuid: sessionUuid,
+          invoice_uuid: invoiceUuid || undefined,
         });
       }}
       className="space-y-4"
     >
+      {effectivePatientUuid && (
+        <div>
+          <label className={labelClass}>Link to invoice (recommended)</label>
+          <select
+            className={selectClass}
+            value={invoiceUuid}
+            onChange={(e) => {
+              const next = e.target.value;
+              setInvoiceUuid(next);
+              const inv = invoices?.find((i) => i.uuid === next);
+              if (inv?.treatment_session_uuid) {
+                setSessionUuid(inv.treatment_session_uuid);
+              }
+            }}
+          >
+            <option value="">No invoice linked</option>
+            {invoices?.map((inv) => (
+              <option key={inv.uuid} value={inv.uuid}>
+                {inv.invoice_number} — {formatCurrency(Number(inv.total))}
+                {inv.balance > 0 ? ` (owed ${formatCurrency(Number(inv.balance))})` : " (paid)"}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {effectivePatientUuid && (
         <div>
           <label className={labelClass}>Link to treatment (optional)</label>
@@ -134,7 +190,33 @@ export function PaymentForm({
         </div>
       )}
 
-      {accounting && sessionUuid && (
+      {selectedInvoice && (
+        <div className="rounded-xl border border-violet-200/80 bg-violet-50/40 p-3 text-sm dark:border-violet-900/50 dark:bg-violet-950/30">
+          <p className="font-medium text-violet-800 dark:text-violet-200">
+            {selectedInvoice.invoice_number}
+          </p>
+          <p className="mt-1 text-slate-600 dark:text-slate-400">
+            Subtotal {formatCurrency(Number(selectedInvoice.subtotal))}
+            {Number(selectedInvoice.discount_amount) > 0 &&
+              ` − discount ${formatCurrency(Number(selectedInvoice.discount_amount))}`}
+            {" "}= {formatCurrency(Number(selectedInvoice.total))}
+          </p>
+          <p className="mt-2 text-lg font-bold text-violet-700 dark:text-violet-300">
+            {selectedInvoice.balance > 0 ? (
+              <>
+                Still owed {formatCurrency(Number(selectedInvoice.balance))}
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  (paid {formatCurrency(Number(selectedInvoice.paid_amount))})
+                </span>
+              </>
+            ) : (
+              <span className="text-emerald-700 dark:text-emerald-300">Paid in full</span>
+            )}
+          </p>
+        </div>
+      )}
+
+      {!selectedInvoice && accounting && sessionUuid && (
         <div className="rounded-xl border border-violet-200/80 bg-violet-50/40 p-3 text-sm dark:border-violet-900/50 dark:bg-violet-950/30">
           <p className="font-medium text-violet-800 dark:text-violet-200">Session total</p>
           <p className="mt-1 text-slate-600 dark:text-slate-400">

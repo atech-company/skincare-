@@ -170,3 +170,12 @@ export function paymentInvoiceItems(patientUuid: string, paymentUuid: string): E
     { type: "export", path: `exports/patients/${patientUuid}/payments/${paymentUuid}/invoice`, label: "Print receipt", paper: "receipt", print: true },
   ];
 }
+
+export function invoiceExportItems(invoiceUuid: string): ExportPrintItem[] {
+  return [
+    { type: "export", path: `exports/invoices/${invoiceUuid}`, label: "Invoice (A4 PDF)", paper: "a4", filename: `invoice-${invoiceUuid}.pdf` },
+    { type: "export", path: `exports/invoices/${invoiceUuid}`, label: "Receipt (80mm PDF)", paper: "receipt", filename: `receipt-${invoiceUuid}.pdf` },
+    { type: "export", path: `exports/invoices/${invoiceUuid}`, label: "Print A4", paper: "a4", print: true },
+    { type: "export", path: `exports/invoices/${invoiceUuid}`, label: "Print receipt", paper: "receipt", print: true },
+  ];
+}
