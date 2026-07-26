@@ -25,7 +25,7 @@ import { PaymentForm } from "@/components/features/payments/payment-form";
 import { DocumentForm } from "@/components/features/documents/document-form";
 import { DocumentViewerPanel } from "@/components/features/documents/document-viewer-panel";
 import { downloadDocument } from "@/lib/document-utils";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 export function SessionListCrud({
   uuid,
@@ -48,19 +48,41 @@ export function SessionListCrud({
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {sessions.map((s) => (
-        <Card key={s.uuid}>
-          <CardContent className="flex items-center justify-between p-4">
-            <Link href={`/treatments/${s.uuid}`} className="flex-1 hover:text-violet-600">
+  const morning = sessions.filter((s) => (s.routine_period ?? "other") === "morning");
+  const night = sessions.filter((s) => s.routine_period === "night");
+  const other = sessions.filter((s) => !s.routine_period || s.routine_period === "other");
+
+  const Routine = ({ title, items }: { title: string; items: NonNullable<Patient["treatment_sessions"]> }) => (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{title}</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        {items.length ? items.map((s) => (
+          <div key={s.uuid} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+            <Link href={`/treatments/${s.uuid}`} className="min-w-0 flex-1 hover:text-violet-600">
               <p className="font-semibold">{s.treatment_name}</p>
-              <p className="text-sm text-slate-500">{formatDate(s.session_date)}</p>
+              <p className="text-sm text-slate-500">
+                {formatDateTime(s.session_date, s.session_time)}
+              </p>
             </Link>
             <Badge variant="success">{formatCurrency(Number(s.total_price))}</Badge>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+        )) : <p className="text-sm text-slate-500">None</p>}
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Link href={`/treatments/new?patient=${uuid}`}>
+          <Button size="sm"><Plus className="h-4 w-4" /> Add treatment</Button>
+        </Link>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Routine title="Morning" items={morning} />
+        <Routine title="Night" items={night} />
+      </div>
+      {other.length > 0 && <Routine title="Other" items={other} />}
     </div>
   );
 }
@@ -341,8 +363,18 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
           <div key={pp.id} className="flex items-start justify-between gap-3 rounded-xl border p-3">
             <div className="min-w-0 space-y-1">
               <p className="font-medium">{pp.product?.product_name}</p>
-              {pp.start_date && (
-                <p className="text-xs text-slate-500">Given {formatDate(pp.start_date)}</p>
+              {(pp.treatment_session || pp.start_date) && (
+                <p className="text-xs text-slate-500">
+                  {pp.treatment_session
+                    ? formatDateTime(
+                        pp.treatment_session.session_date ?? pp.start_date,
+                        pp.treatment_session.session_time
+                      )
+                    : `Given ${formatDate(pp.start_date!)}`}
+                  {pp.treatment_session?.treatment_name
+                    ? ` · ${pp.treatment_session.treatment_name}`
+                    : ""}
+                </p>
               )}
               {pp.dosage_notes && (
                 <p className="text-sm text-slate-600 dark:text-slate-300">{pp.dosage_notes}</p>

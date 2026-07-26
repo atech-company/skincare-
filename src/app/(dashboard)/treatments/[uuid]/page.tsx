@@ -18,7 +18,7 @@ import { ExportPrintMenu, treatmentExportItems } from "@/components/shared/expor
 import { TreatmentForm } from "@/components/features/treatments/treatment-form";
 import { TreatmentProductSales } from "@/components/features/treatments/treatment-product-sales";
 import { PaymentForm } from "@/components/features/payments/payment-form";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useMutation } from "@tanstack/react-query";
 
@@ -96,6 +96,14 @@ export default function TreatmentDetailPage() {
         <div>
           <h1 className="text-2xl font-bold">{session?.treatment_name ?? "Treatment"}</h1>
           <p className="text-slate-500 dark:text-slate-400">{session?.diagnosis}</p>
+          {session && (
+            <p className="mt-1 text-sm text-slate-500">
+              {formatDateTime(session.session_date, session.session_time)}
+              {session.routine_period && session.routine_period !== "other"
+                ? ` · ${session.routine_period}`
+                : ""}
+            </p>
+          )}
           {session?.accounting && (
             <div className="mt-2 flex flex-wrap gap-2 text-sm">
               <Badge variant="muted">

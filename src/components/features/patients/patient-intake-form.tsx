@@ -98,6 +98,11 @@ export function PatientIntakeForm({
     if (!treatmentFields?.length) return;
     const state = initFormState(treatmentFields, null);
     if (!state.values.session_date) state.values.session_date = new Date().toISOString().slice(0, 10);
+    if (!state.values.session_time) {
+      const now = new Date();
+      state.values.session_time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    }
+    if (!state.values.routine_period) state.values.routine_period = "other";
     setTreatmentValues(state.values);
     setTreatmentCustom(state.customFields);
   }, [treatmentFields]);

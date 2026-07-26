@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { unwrapList } from "@/lib/api-data";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DynamicFormFields } from "@/components/forms/dynamic-form-fields";
 import { useFormFields } from "@/hooks/use-form-fields";
@@ -183,7 +183,7 @@ export function PaymentForm({
             <option value="">General payment (not tied to a visit)</option>
             {sessions?.map((s) => (
               <option key={s.uuid} value={s.uuid}>
-                {s.treatment_name} — {formatDate(s.session_date)} ({formatCurrency(Number(s.total_price))})
+                {s.treatment_name} — {formatDateTime(s.session_date, s.session_time)} ({formatCurrency(Number(s.total_price))})
               </option>
             ))}
           </select>

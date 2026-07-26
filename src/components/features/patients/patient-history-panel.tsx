@@ -406,6 +406,7 @@ function HistoryEventCard({
   const paymentReference = metaText(event.meta, "reference");
   const routinePeriod = metaText(event.meta, "routine_period");
   const appointmentTime = metaText(event.meta, "appointment_time");
+  const sessionTime = metaText(event.meta, "session_time");
   const document = event.type === "document" ? eventToDocument(event, patientUuid, patientName) : null;
   const payment = event.type === "payment" ? eventToPayment(event, patientUuid) : null;
   const statusLabel = displayStatus(event.status);
@@ -431,7 +432,12 @@ function HistoryEventCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="muted">{TYPE_LABEL[event.type]}</Badge>
             {statusLabel && <Badge variant="default">{statusLabel}</Badge>}
-            {!compact && <span className="text-xs text-slate-500">{formatDate(event.date)}</span>}
+            {!compact && (
+              <span className="text-xs text-slate-500">
+                {formatDate(event.date)}
+                {sessionTime ? ` · ${sessionTime.slice(0, 5)}` : ""}
+              </span>
+            )}
           </div>
           <p className={cn("font-semibold", compact ? "text-sm" : "mt-1")}>{event.title}</p>
           {event.description && (
@@ -439,6 +445,9 @@ function HistoryEventCard({
           )}
           {event.type === "treatment" && doctorName && (
             <p className="text-xs text-slate-500">Doctor: {doctorName}</p>
+          )}
+          {event.type === "treatment" && routinePeriod && routinePeriod !== "other" && (
+            <p className="text-xs text-slate-500 capitalize">Routine: {routinePeriod}</p>
           )}
           {event.type === "payment" && paymentMethod && (
             <p className="text-xs text-slate-500 capitalize">Method: {paymentMethod.replace(/_/g, " ")}</p>
@@ -449,9 +458,13 @@ function HistoryEventCard({
           {event.type === "product_assigned" && routinePeriod && (
             <p className="text-xs text-slate-500 capitalize">Routine: {routinePeriod}</p>
           )}
+          {event.type === "product_assigned" && sessionTime && (
+            <p className="text-xs text-slate-500">Session time: {sessionTime.slice(0, 5)}</p>
+          )}
           {event.type === "product_sale" && metaText(event.meta, "treatment_name") && (
             <p className="text-xs text-slate-500">
               Treatment: {metaText(event.meta, "treatment_name")}
+              {sessionTime ? ` · ${sessionTime.slice(0, 5)}` : ""}
             </p>
           )}
           {event.type === "appointment" && appointmentTime && (

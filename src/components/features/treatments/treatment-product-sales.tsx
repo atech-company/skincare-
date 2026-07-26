@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { labelClass } from "@/lib/form-styles";
+import { labelClass, selectClass, textareaClass } from "@/lib/form-styles";
 import { ProductSearchSelect } from "@/components/features/products/product-search-select";
 import { formatCurrency } from "@/lib/utils";
 import type { Product, TreatmentProductSale } from "@/types";
@@ -26,18 +26,32 @@ export function TreatmentProductSales({
   const queryClient = useQueryClient();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [routinePeriod, setRoutinePeriod] = useState<"" | "morning" | "night" | "other">("");
+  const [instructions, setInstructions] = useState("");
 
   const addMutation = useMutation({
     mutationFn: async () => {
       await api.post(`/treatment-sessions/${sessionUuid}/product-sales`, {
         product_uuid: selectedProduct!.uuid,
         quantity,
+        ...(routinePeriod
+          ? {
+              routine_period: routinePeriod,
+              dosage_notes: instructions.trim() || undefined,
+            }
+          : {}),
       });
     },
     onSuccess: () => {
-      toast.success("Product sold — stock updated");
+      toast.success(
+        routinePeriod
+          ? "Product sold and added to routine"
+          : "Product sold — stock updated"
+      );
       setSelectedProduct(null);
       setQuantity(1);
+      setRoutinePeriod("");
+      setInstructions("");
       queryClient.invalidateQueries({ queryKey: ["treatment", sessionUuid] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       onChanged();
@@ -82,6 +96,32 @@ export function TreatmentProductSales({
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
             />
           </div>
+          <div>
+            <label className={labelClass}>Use when</label>
+            <select
+              className={selectClass}
+              value={routinePeriod}
+              onChange={(e) =>
+                setRoutinePeriod(e.target.value as "" | "morning" | "night" | "other")
+              }
+            >
+              <option value="">Sale only (no routine)</option>
+              <option value="morning">Morning</option>
+              <option value="night">Night</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Instructions</label>
+            <textarea
+              className={textareaClass}
+              rows={2}
+              placeholder="How to use"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              disabled={!routinePeriod}
+            />
+          </div>
         </div>
         {selectedProduct && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -99,38 +139,33 @@ export function TreatmentProductSales({
           <Plus className="h-4 w-4" /> Add product sale
         </Button>
 
-        {!sales?.length ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No products sold yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-slate-500 dark:border-slate-700">
-                  <th className="py-2 pr-4">Product</th>
-                  <th className="py-2 pr-4">Qty</th>
-                  <th className="py-2 pr-4">Unit</th>
-                  <th className="py-2 pr-4">Total</th>
-                  <th className="py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {sales.map((s) => (
-                  <tr key={s.uuid} className="border-b dark:border-slate-800">
-                    <td className="py-2 pr-4">{s.product?.product_name ?? "—"}</td>
-                    <td className="py-2 pr-4">{s.quantity}</td>
-                    <td className="py-2 pr-4">{formatCurrency(s.unit_price)}</td>
-                    <td className="py-2 pr-4 font-medium">{formatCurrency(s.total)}</td>
-                    <td className="py-2">
-                      <Button variant="ghost" size="icon" onClick={() => void removeSale(s)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ul className="space-y-2">
+          {(sales ?? []).map((sale) => (
+            <li
+              key={sale.id}
+              className="flex items-center justify-between rounded-lg border border-slate-200/80 p-3 dark:border-slate-700"
+            >
+              <div>
+                <p className="font-medium">{sale.product?.product_name ?? "Product"}</p>
+                <p className="text-xs text-slate-500">
+                  Qty {sale.quantity} · {formatCurrency(Number(sale.total))}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeSale(sale)}
+                aria-label="Remove sale"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </li>
+          ))}
+          {!sales?.length && (
+            <p className="text-sm text-slate-500">No products sold in this session yet.</p>
+          )}
+        </ul>
       </CardContent>
     </Card>
   );

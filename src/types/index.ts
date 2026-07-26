@@ -68,6 +68,8 @@ export interface TreatmentSession {
   follow_up_notes?: string;
   total_price: number;
   session_date: string;
+  session_time?: string | null;
+  routine_period?: "morning" | "night" | "other" | null;
   status: string;
   custom_fields?: Record<string, string>;
   doctor?: User;
@@ -116,6 +118,12 @@ export interface PatientProduct {
   end_date?: string;
   is_active: boolean;
   product?: Product;
+  treatment_session?: {
+    uuid: string;
+    treatment_name: string;
+    session_date?: string;
+    session_time?: string | null;
+  } | null;
 }
 
 export interface Document {

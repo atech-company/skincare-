@@ -81,6 +81,8 @@ function FieldInput({
       return <Input type="number" step="any" {...common} placeholder={def.label} required={def.is_required} />;
     case "date":
       return <Input type="date" {...common} required={def.is_required} />;
+    case "time":
+      return <Input type="time" {...common} required={def.is_required} />;
     case "checkbox":
       return (
         <label className="flex items-center gap-2 text-sm">

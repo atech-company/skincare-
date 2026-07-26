@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { selectClass, labelClass } from "@/lib/form-styles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { ExportPrintMenu } from "@/components/shared/export-print-menu";
 
 export default function TreatmentsPage() {
@@ -112,7 +112,12 @@ export default function TreatmentsPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold">{s.treatment_name}</p>
-                    <p className="text-sm text-slate-500">{formatDate(s.session_date)}</p>
+                    <p className="text-sm text-slate-500">
+                      {formatDateTime(s.session_date, s.session_time)}
+                      {s.routine_period && s.routine_period !== "other"
+                        ? ` · ${s.routine_period}`
+                        : ""}
+                    </p>
                   </div>
                   <Badge>{s.status}</Badge>
                 </div>
