@@ -4,7 +4,7 @@ import { Package, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { labelClass } from "@/lib/form-styles";
+import { labelClass, selectClass, textareaClass } from "@/lib/form-styles";
 import { ProductQuickCreateModal } from "@/components/features/products/product-quick-create-modal";
 import { ProductSearchSelect } from "@/components/features/products/product-search-select";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,9 @@ export type TreatmentProductLine = {
   id: string;
   product_uuid: string;
   quantity: number;
+  /** When to use — adds product to patient morning/night routine */
+  routine_period?: "" | "morning" | "night" | "other";
+  dosage_notes?: string;
 };
 
 export function sumProductLinesTotal(
@@ -70,7 +73,13 @@ export function TreatmentProductsPicker({
     } else {
       onChange([
         ...lines.filter((l) => l.product_uuid),
-        { id: `line_${Date.now()}`, product_uuid: p.uuid, quantity: qty },
+        {
+          id: `line_${Date.now()}`,
+          product_uuid: p.uuid,
+          quantity: qty,
+          routine_period: "",
+          dosage_notes: "",
+        },
       ]);
       toast.success(`Added ${p.product_name}`);
     }
@@ -133,52 +142,84 @@ export function TreatmentProductsPicker({
           No products added yet. Use the search above to attach products sold or given during this visit.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {filledLines.map((line) => {
             const product = resolveProduct(line.product_uuid);
             if (!product) return null;
             return (
               <li
                 key={line.id}
-                className="flex flex-col gap-2 rounded-lg border border-slate-200/80 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/50 sm:flex-row sm:items-center"
+                className="space-y-3 rounded-lg border border-slate-200/80 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/50"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{product.product_name}</p>
-                  <p className="text-xs text-slate-500">
-                    {formatCurrency(product.price)} each
-                    {product.brand && ` · ${product.brand}`}
-                    {` · stock ${product.stock_quantity}`}
-                  </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{product.product_name}</p>
+                    <p className="text-xs text-slate-500">
+                      {formatCurrency(product.price)} each
+                      {product.brand && ` · ${product.brand}`}
+                      {` · stock ${product.stock_quantity}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20">
+                      <label className="sr-only">Quantity</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={line.quantity}
+                        onChange={(e) =>
+                          updateLine(line.id, {
+                            quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.preventDefault();
+                        }}
+                      />
+                    </div>
+                    <span className="min-w-[4.5rem] text-sm font-medium text-violet-600">
+                      {formatCurrency(product.price * line.quantity)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeLine(line.id)}
+                      aria-label={`Remove ${product.product_name}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-20">
-                    <label className="sr-only">Quantity</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={line.quantity}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Use when</label>
+                    <select
+                      className={selectClass}
+                      value={line.routine_period ?? ""}
                       onChange={(e) =>
                         updateLine(line.id, {
-                          quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
+                          routine_period: e.target.value as TreatmentProductLine["routine_period"],
                         })
                       }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") e.preventDefault();
-                      }}
+                    >
+                      <option value="">Sale only (no routine)</option>
+                      <option value="morning">Morning</option>
+                      <option value="night">Night</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelClass}>Instructions</label>
+                    <textarea
+                      className={textareaClass}
+                      rows={2}
+                      placeholder="How to use (e.g. apply at night after serum)"
+                      value={line.dosage_notes ?? ""}
+                      onChange={(e) => updateLine(line.id, { dosage_notes: e.target.value })}
+                      disabled={!line.routine_period}
                     />
                   </div>
-                  <span className="min-w-[4.5rem] text-sm font-medium text-violet-600">
-                    {formatCurrency(product.price * line.quantity)}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLine(line.id)}
-                    aria-label={`Remove ${product.product_name}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
                 </div>
               </li>
             );
@@ -212,7 +253,7 @@ export function TreatmentProductsPicker({
           <Badge variant="muted">Optional</Badge>
         </CardTitle>
         <CardDescription>
-          Search existing products or add a new one with cost and sell price. Inventory updates when you save.
+          Search products to sell or give. Set morning/night and instructions to add them to the patient routine (date given = session date).
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>
@@ -223,5 +264,14 @@ export function TreatmentProductsPicker({
 export function productLinesToPayload(lines: TreatmentProductLine[]) {
   return lines
     .filter((l) => l.product_uuid)
-    .map((l) => ({ product_uuid: l.product_uuid, quantity: l.quantity }));
+    .map((l) => ({
+      product_uuid: l.product_uuid,
+      quantity: l.quantity,
+      ...(l.routine_period
+        ? {
+            routine_period: l.routine_period,
+            dosage_notes: l.dosage_notes?.trim() || undefined,
+          }
+        : {}),
+    }));
 }

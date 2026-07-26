@@ -9,10 +9,11 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { confirmDelete, deleteResource } from "@/lib/crud";
 import { deletePatient } from "@/components/features/patients/patient-crud-modals";
-import { labelClass, selectClass } from "@/lib/form-styles";
+import { labelClass, selectClass, textareaClass } from "@/lib/form-styles";
 import { ProductSearchSelect } from "@/components/features/products/product-search-select";
 import type { Patient, PatientProduct, Payment, Product } from "@/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
@@ -285,18 +286,33 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
   const [open, setOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [period, setPeriod] = useState("morning");
+  const [dateGiven, setDateGiven] = useState(() => new Date().toISOString().slice(0, 10));
+  const [instructions, setInstructions] = useState("");
   const [assigning, setAssigning] = useState(false);
 
-  const assignProduct = async (product: Product) => {
+  const resetAssignForm = () => {
+    setSelectedProduct(null);
+    setPeriod("morning");
+    setDateGiven(new Date().toISOString().slice(0, 10));
+    setInstructions("");
+  };
+
+  const assignProduct = async () => {
+    if (!selectedProduct) {
+      toast.error("Select a product");
+      return;
+    }
     setAssigning(true);
     try {
       await api.post(`/patients/${uuid}/products`, {
-        product_uuid: product.uuid,
+        product_uuid: selectedProduct.uuid,
         routine_period: period,
+        start_date: dateGiven || undefined,
+        dosage_notes: instructions.trim() || undefined,
       });
       queryClient.invalidateQueries({ queryKey: ["patient", uuid] });
-      toast.success(`${product.product_name} assigned (${period})`);
-      setSelectedProduct(null);
+      toast.success(`${selectedProduct.product_name} assigned (${period})`);
+      resetAssignForm();
       setOpen(false);
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } };
@@ -315,15 +331,24 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
 
   const morning = products?.filter((p) => p.routine_period === "morning") ?? [];
   const night = products?.filter((p) => p.routine_period === "night") ?? [];
+  const other = products?.filter((p) => p.routine_period === "other") ?? [];
 
   const Routine = ({ title, items }: { title: string; items: PatientProduct[] }) => (
     <Card>
       <CardHeader><CardTitle className="text-base">{title}</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {items.length ? items.map((pp) => (
-          <div key={pp.id} className="flex items-center justify-between rounded-xl border p-3">
-            <p className="font-medium">{pp.product?.product_name}</p>
-            <button type="button" className="text-sm text-red-600" onClick={() => remove(pp)}>Remove</button>
+          <div key={pp.id} className="flex items-start justify-between gap-3 rounded-xl border p-3">
+            <div className="min-w-0 space-y-1">
+              <p className="font-medium">{pp.product?.product_name}</p>
+              {pp.start_date && (
+                <p className="text-xs text-slate-500">Given {formatDate(pp.start_date)}</p>
+              )}
+              {pp.dosage_notes && (
+                <p className="text-sm text-slate-600 dark:text-slate-300">{pp.dosage_notes}</p>
+              )}
+            </div>
+            <button type="button" className="shrink-0 text-sm text-red-600" onClick={() => remove(pp)}>Remove</button>
           </div>
         )) : <p className="text-sm text-slate-500">None assigned</p>}
       </CardContent>
@@ -332,33 +357,79 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
 
   return (
     <div className="space-y-4">
-      <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Assign product</Button>
+      <Button
+        size="sm"
+        onClick={() => {
+          resetAssignForm();
+          setOpen(true);
+        }}
+      >
+        <Plus className="h-4 w-4" /> Assign product
+      </Button>
       <div className="grid gap-4 md:grid-cols-2">
         <Routine title="Morning" items={morning} />
         <Routine title="Night" items={night} />
       </div>
-      <Modal open={open} onClose={() => setOpen(false)} title="Assign product">
+      {other.length > 0 && <Routine title="Other" items={other} />}
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          resetAssignForm();
+        }}
+        title="Assign product"
+      >
         <div className="space-y-4">
           <div>
-            <label className={labelClass}>Routine</label>
-            <select className={selectClass} value={period} onChange={(e) => setPeriod(e.target.value)}>
-              <option value="morning">Morning</option>
-              <option value="night">Night</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Search product</label>
-            <p className="mb-2 text-xs text-slate-500">Pick a result to assign it immediately.</p>
+            <label className={labelClass}>Product</label>
             <ProductSearchSelect
               selected={selectedProduct}
-              onSelect={(p) => {
-                if (p) assignProduct(p);
-                else setSelectedProduct(null);
-              }}
+              onSelect={setSelectedProduct}
             />
           </div>
-          {assigning && <p className="text-sm text-slate-500">Assigning…</p>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Date given</label>
+              <Input
+                type="date"
+                value={dateGiven}
+                onChange={(e) => setDateGiven(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Use when</label>
+              <select className={selectClass} value={period} onChange={(e) => setPeriod(e.target.value)}>
+                <option value="morning">Morning</option>
+                <option value="night">Night</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Instructions</label>
+            <textarea
+              className={textareaClass}
+              rows={3}
+              placeholder="How to use (e.g. apply thin layer after cleansing)"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setOpen(false);
+                resetAssignForm();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={assignProduct} disabled={assigning || !selectedProduct}>
+              {assigning ? "Assigning…" : "Assign"}
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>
