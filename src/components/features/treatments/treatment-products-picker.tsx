@@ -203,7 +203,7 @@ export function TreatmentProductsPicker({
                         })
                       }
                     >
-                      <option value="">Sale only (no routine)</option>
+                      <option value="">Other (optional)</option>
                       <option value="morning">Morning</option>
                       <option value="night">Night</option>
                       <option value="other">Other</option>
@@ -217,7 +217,6 @@ export function TreatmentProductsPicker({
                       placeholder="How to use (e.g. apply at night after serum)"
                       value={line.dosage_notes ?? ""}
                       onChange={(e) => updateLine(line.id, { dosage_notes: e.target.value })}
-                      disabled={!line.routine_period}
                     />
                   </div>
                 </div>
@@ -253,7 +252,7 @@ export function TreatmentProductsPicker({
           <Badge variant="muted">Optional</Badge>
         </CardTitle>
         <CardDescription>
-          Search products to sell or give. Set morning/night and instructions to add them to the patient routine (date given = session date).
+          Products sold or given appear on the patient Products tab. Optionally set morning/night; leave blank to list under Other.
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>
@@ -267,11 +266,9 @@ export function productLinesToPayload(lines: TreatmentProductLine[]) {
     .map((l) => ({
       product_uuid: l.product_uuid,
       quantity: l.quantity,
-      ...(l.routine_period
-        ? {
-            routine_period: l.routine_period,
-            dosage_notes: l.dosage_notes?.trim() || undefined,
-          }
+      ...(l.routine_period ? { routine_period: l.routine_period } : {}),
+      ...(l.dosage_notes?.trim()
+        ? { dosage_notes: l.dosage_notes.trim() }
         : {}),
     }));
 }

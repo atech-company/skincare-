@@ -34,19 +34,15 @@ export function TreatmentProductSales({
       await api.post(`/treatment-sessions/${sessionUuid}/product-sales`, {
         product_uuid: selectedProduct!.uuid,
         quantity,
-        ...(routinePeriod
-          ? {
-              routine_period: routinePeriod,
-              dosage_notes: instructions.trim() || undefined,
-            }
-          : {}),
+        ...(routinePeriod ? { routine_period: routinePeriod } : {}),
+        ...(instructions.trim() ? { dosage_notes: instructions.trim() } : {}),
       });
     },
     onSuccess: () => {
       toast.success(
         routinePeriod
           ? "Product sold and added to routine"
-          : "Product sold — stock updated"
+          : "Product sold and added to patient Products (Other)"
       );
       setSelectedProduct(null);
       setQuantity(1);
@@ -105,7 +101,7 @@ export function TreatmentProductSales({
                 setRoutinePeriod(e.target.value as "" | "morning" | "night" | "other")
               }
             >
-              <option value="">Sale only (no routine)</option>
+              <option value="">Other (optional)</option>
               <option value="morning">Morning</option>
               <option value="night">Night</option>
               <option value="other">Other</option>
@@ -119,7 +115,6 @@ export function TreatmentProductSales({
               placeholder="How to use"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              disabled={!routinePeriod}
             />
           </div>
         </div>

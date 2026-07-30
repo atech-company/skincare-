@@ -194,6 +194,12 @@ export function PatientIntakeForm({
     productLinesToPayload(productLines).forEach((sale, i) => {
       body.append(`product_sales[${i}][product_uuid]`, sale.product_uuid);
       body.append(`product_sales[${i}][quantity]`, String(sale.quantity));
+      if (sale.routine_period) {
+        body.append(`product_sales[${i}][routine_period]`, sale.routine_period);
+      }
+      if (sale.dosage_notes) {
+        body.append(`product_sales[${i}][dosage_notes]`, sale.dosage_notes);
+      }
     });
 
     const appendImages = (key: string, files: File[]) => {

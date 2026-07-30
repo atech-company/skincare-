@@ -389,20 +389,28 @@ export function ProductsTab({ uuid, products }: { uuid: string; products?: Patie
 
   return (
     <div className="space-y-4">
-      <Button
-        size="sm"
-        onClick={() => {
-          resetAssignForm();
-          setOpen(true);
-        }}
-      >
-        <Plus className="h-4 w-4" /> Assign product
-      </Button>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          Products from treatments appear here. Use Assign to add one without a sale.
+        </p>
+        <Button
+          size="sm"
+          onClick={() => {
+            resetAssignForm();
+            setOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" /> Assign product
+        </Button>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Routine title="Morning" items={morning} />
         <Routine title="Night" items={night} />
+        <Routine title="Other" items={other} />
       </div>
-      {other.length > 0 && <Routine title="Other" items={other} />}
+      {!morning.length && !night.length && !other.length && (
+        <p className="text-sm text-slate-500">No products yet — assign one or give products on a treatment.</p>
+      )}
       <Modal
         open={open}
         onClose={() => {
